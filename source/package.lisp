@@ -21,8 +21,14 @@
            #:generation
            #:generation-compatible-p
            #:generation-core-pathname
+           #:generation-core-probe-output
+           #:generation-core-probe-record
            #:generation-core-probe-run
+           #:generation-core-probe-output
+           #:generation-core-probe-record
            #:generation-core-probe-runner
+           #:generation-core-probe-output
+           #:generation-core-probe-record
            #:generation-core-probe-runner-command
            #:generation-created-at
            #:generation-directory
