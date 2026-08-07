@@ -52,11 +52,16 @@ ordinary startup."
     :reader checkpoint-backend-identifier-function
     :type function
     :documentation "Returns a fresh identifier naming the next generation.")
+   (precheck-function
+    :initarg :precheck-function
+    :reader checkpoint-backend-precheck-function
+    :type (or null function)
+    :documentation "Runs slow validation before anything is exclusive, or NIL.")
    (metadata-function
     :initarg :metadata-function
     :reader checkpoint-backend-metadata-function
     :type (or null function)
-    :documentation "Returns the manifest properties for an identifier, or NIL.")
+    :documentation "Returns the manifest properties inside the exclusive region.")
    (validate-function
     :initarg :validate-function
     :reader checkpoint-backend-validate-function
@@ -102,6 +107,7 @@ ordinary startup."
        store
        toplevel-function
        (identifier-function #'checkpoint--default-identifier)
+       precheck-function
        metadata-function
        validate-function
        prepare-function
@@ -118,14 +124,19 @@ The hooks run at these points, and each may be omitted:
 
 - AROUND-FUNCTION receives a thunk and wraps the entire checkpoint. Use it to
   hold whatever dynamic context the rest of the hooks assume.
-- METADATA-FUNCTION receives the new identifier and returns the manifest
-  properties. It runs before any quiescing, so slow work such as validating a
-  source tree belongs here.
-- FORK-GUARD-FUNCTION receives a thunk and wraps the pre-fork checks together
-  with the fork itself, which is the only region that must be exclusive.
-- VALIDATE-FUNCTION receives the pending generation inside that region and
-  returns state. Re-check anything METADATA-FUNCTION established, since time has
-  passed. Whatever it returns is handed to RESUME-FUNCTION.
+- PRECHECK-FUNCTION runs before anything is exclusive and returns a value passed
+  on to the two hooks below. Slow work such as validating a source tree belongs
+  here, precisely because nothing is being held while it runs.
+- FORK-GUARD-FUNCTION receives a thunk and wraps everything that follows,
+  together with the fork itself. That is the only region that must be exclusive,
+  and it is kept as short as the work allows.
+- VALIDATE-FUNCTION receives PRECHECK-FUNCTION's value inside that region and
+  returns state. Re-check anything the precheck established, since time has
+  passed and this is the last chance. Whatever it returns is handed to
+  RESUME-FUNCTION.
+- METADATA-FUNCTION receives the new identifier and PRECHECK-FUNCTION's value,
+  and returns the manifest properties. It runs inside the exclusive region, so
+  a host may record state that must not change between here and the fork.
 - PREPARE-FUNCTION receives the generation inside the saver child, before the
   image is written. Detach inherited descriptors and clear secrets here: they
   would otherwise be saved into the core.
@@ -147,6 +158,7 @@ than at the fork."
                  :store store
                  :toplevel-function toplevel-function
                  :identifier-function identifier-function
+                 :precheck-function precheck-function
                  :metadata-function metadata-function
                  :validate-function validate-function
                  :prepare-function prepare-function
@@ -266,21 +278,13 @@ on the saver and then publishes, and it exits without returning to any host code
     (setf *checkpoint-in-progress-p* nil))
   nil)
 
-(defun checkpoint--fork-region (backend generation)
-  "Run the exclusive pre-fork checks and fork, returning the coordinator state.
+(defun checkpoint--fork (generation)
+  "Fork the coordinator for GENERATION and report which process this is.
 
 Return two values: true in the coordinator child, and the coordinator identifier
 in the parent."
   (let ((coordinator-p nil)
         (coordinator-pid nil))
-    (when *checkpoint-in-progress-p*
-      (generations--fail :validation "A checkpoint is already being published."))
-    (unless (checkpoint--single-threaded-p)
-      (generations--fail
-       :fork
-       "A checkpoint requires the current thread to be the only live thread."))
-    (finish-output *standard-output*)
-    (finish-output *error-output*)
     (ensure-directories-exist (generation-directory generation))
     (setf *checkpoint-in-progress-p* t)
     (handler-case
@@ -307,22 +311,42 @@ in the parent."
 (defun checkpoint--create (backend)
   "Create one checkpoint, assuming any host dynamic context is established."
   (let* ((store (checkpoint-backend-store backend))
+         (precheck (checkpoint-backend-precheck-function backend))
          (metadata-function (checkpoint-backend-metadata-function backend))
-         (identifier (funcall (checkpoint-backend-identifier-function backend)))
-         (metadata (and metadata-function (funcall metadata-function identifier)))
-         (generation (generation--create-record store identifier
-                                                :metadata metadata))
          (validate (checkpoint-backend-validate-function backend))
          (guard (checkpoint-backend-fork-guard-function backend))
+         (precheck-value (and precheck (funcall precheck)))
+         (generation nil)
          (validated-state nil)
          (coordinator-p nil)
          (coordinator-pid nil)
          (failure nil))
     (flet ((region ()
+             ;; Everything here runs while the host holds the process exclusive,
+             ;; so it stays in the order a checkpoint actually depends on: refuse
+             ;; a second checkpoint, let the host re-validate, confirm this is the
+             ;; only thread, then record the generation and fork.
+             (when *checkpoint-in-progress-p*
+               (generations--fail :validation
+                                  "A checkpoint is already being published."))
              (when validate
-               (setf validated-state (funcall validate generation)))
+               (setf validated-state (funcall validate precheck-value)))
+             (unless (checkpoint--single-threaded-p)
+               (generations--fail
+                :fork
+                "A checkpoint requires the current thread to be the only live thread."))
+             (finish-output *standard-output*)
+             (finish-output *error-output*)
+             (let ((identifier
+                     (funcall (checkpoint-backend-identifier-function backend))))
+               (setf generation
+                     (generation--create-record
+                      store identifier
+                      :metadata (and metadata-function
+                                     (funcall metadata-function
+                                              identifier precheck-value)))))
              (multiple-value-setq (coordinator-p coordinator-pid)
-               (checkpoint--fork-region backend generation))
+               (checkpoint--fork generation))
              nil))
       (handler-case
           (if guard
