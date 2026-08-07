@@ -8,6 +8,7 @@
            #:checkpoint-create
            #:checkpoint-error
            #:checkpoint-error-cause
+           #:checkpoint-error-message
            #:checkpoint-error-pathname
            #:checkpoint-error-stage
            #:checkpoint-resume-toplevel
