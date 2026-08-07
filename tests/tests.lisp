@@ -20,7 +20,7 @@ and compatibility paths without spending a fork and a real image save."
          (core (merge-pathnames "image.core" directory))
          (manifest (merge-pathnames "manifest.sexp" directory)))
     (tests--write-core core bytes)
-    (sexp-store:snapshot-write
+    (sbcl-generations::store--write-form
      manifest
      (append (list :generation
                    :version (sbcl-generations::generation-store-manifest-version
@@ -59,7 +59,7 @@ and compatibility paths without spending a fork and a real image save."
                  "host metadata survives the manifest round trip")
     (let ((incompatible (tests--store root)))
       (declare (ignore incompatible))
-      (sexp-store:snapshot-write
+      (sbcl-generations::store--write-form
        (merge-pathnames "gamma/manifest.sexp"
                         (sbcl-generations::generation-store-root store))
        (list :generation :version 1 :id "gamma"
@@ -85,7 +85,7 @@ and compatibility paths without spending a fork and a real image save."
                  "a manifest that is not a generation record is refused")
     (let ((escaping (merge-pathnames "escaping/manifest.sexp"
                                      (sbcl-generations::generation-store-root store))))
-      (sexp-store:snapshot-write escaping
+      (sbcl-generations::store--write-form escaping
                                  (list :generation :version 1 :id "escaping"
                                        :core "/etc/passwd" :created-at 400))
       (test-assert (eq (checkpoint-stage

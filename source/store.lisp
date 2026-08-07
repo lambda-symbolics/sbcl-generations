@@ -46,12 +46,13 @@ working after that."
     (generations--fail :selection
                        "A generation cannot be selected while a checkpoint publishes."
                        :pathname (generation-store-current-pathname store)))
-  (unless (generation-compatible-p generation)
+  (unless (generation-compatible-p generation store)
     (generations--fail :selection
                        (format nil "Generation ~A is not compatible with this runtime."
                                (generation-identifier generation))
                        :pathname (generation-manifest-pathname generation)))
-  (generation--write-form (generation-store-current-pathname store)
+  (generation--write-form store
+                          (generation-store-current-pathname store)
                           (generation--select-form generation))
   generation)
 
@@ -63,7 +64,7 @@ process boot a core from anywhere else on the filesystem."
   (let ((pathname (generation-store-current-pathname store)))
     (when (probe-file pathname)
       (handler-case
-          (let* ((record (generation--read-form pathname))
+          (let* ((record (generation--read-form store pathname))
                  (identifier (and (listp record) (getf (rest record) :id)))
                  (manifest (and (listp record) (getf (rest record) :manifest))))
             (when (and (listp record)

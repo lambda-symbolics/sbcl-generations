@@ -5,7 +5,6 @@
   :version "0.1.0"
   :serial t
   :depends-on (#:bordeaux-threads
-               #:sexp-store
                #:sb-posix)
   :components ((:module "source"
                 :serial t

@@ -2,9 +2,6 @@
   (:use #:cl)
   (:import-from #:bordeaux-threads
                 #:make-thread)
-  (:import-from #:sexp-store
-                #:snapshot-read
-                #:snapshot-write)
   (:export #:*checkpoint-in-progress-p*
            #:checkpoint-backend
            #:checkpoint-backend-store
@@ -47,7 +44,9 @@
            #:generation-status
            #:generation-store
            #:generation-store-current-pathname
+           #:generation-store-read-function
            #:generation-store-root
+           #:generation-store-write-function
            #:generation-temporary-core-pathname
            #:make-checkpoint-backend
            #:make-generation-store

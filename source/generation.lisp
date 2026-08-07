@@ -1,5 +1,65 @@
 (in-package #:sbcl-generations)
 
+;;;; -- Default Portable Storage --
+
+(defun store--print-form (form stream)
+  "Write FORM to STREAM so that any reader reproduces it exactly."
+  (let ((*print-base* 10)
+        (*print-case* :upcase)
+        (*print-circle* nil)
+        (*print-length* nil)
+        (*print-level* nil)
+        (*print-pretty* nil)
+        (*print-radix* nil)
+        (*print-readably* t))
+    (write form :stream stream)
+    (terpri stream)))
+
+(defun store--write-form (pathname form)
+  "Publish FORM at PATHNAME by writing a neighbour file and renaming it.
+
+This default uses nothing outside Common Lisp and UIOP, so a minimal image can
+publish a generation without loading a filesystem or foreign-function library.
+It therefore cannot set a file mode; pass a host writer to the store when the
+permissions matter."
+  (ensure-directories-exist pathname)
+  (let ((temporary (make-pathname
+                    :name (concatenate 'string
+                                       "."
+                                       (or (pathname-name pathname) "record")
+                                       "-tmp")
+                    :type (pathname-type pathname)
+                    :defaults pathname)))
+    (with-open-file (stream temporary
+                            :direction :output
+                            :if-exists :supersede
+                            :if-does-not-exist :create
+                            :external-format :utf-8)
+      (store--print-form form stream)
+      (finish-output stream))
+    (uiop:rename-file-overwriting-target temporary pathname)
+    pathname))
+
+(defun store--read-form (pathname)
+  "Return the single portable form stored at PATHNAME.
+
+Evaluation is disabled while reading, because a generation record is data
+written by another process and may have been tampered with."
+  (with-open-file (stream pathname :direction :input :external-format :utf-8)
+    (let* ((*read-eval* nil)
+           (end (list :end))
+           (form (read stream nil end)))
+      (when (eq form end)
+        (generations--fail :manifest
+                           "A generation record holds no form."
+                           :pathname pathname))
+      (unless (eq (read stream nil end) end)
+        (generations--fail :manifest
+                           "A generation record holds more than one form."
+                           :pathname pathname))
+      form)))
+
+
 ;;;; -- Generation Store --
 
 (defclass generation-store ()
@@ -42,7 +102,17 @@
     :initarg :publish-validator
     :reader generation-store-publish-validator
     :type (or null function)
-    :documentation "A host check of one generation's artifacts before publication."))
+    :documentation "A host check of one generation's artifacts before publication.")
+   (write-function
+    :initarg :write-function
+    :reader generation-store-write-function
+    :type function
+    :documentation "Publishes one portable form atomically at a pathname.")
+   (read-function
+    :initarg :read-function
+    :reader generation-store-read-function
+    :type function
+    :documentation "Returns the single portable form stored at a pathname."))
   (:documentation "Where retained generations live and how their manifests read."))
 
 (defun make-generation-store
@@ -54,7 +124,9 @@
        (manifest-version 1)
        (accepted-manifest-versions nil)
        manifest-validator
-       publish-validator)
+       publish-validator
+       (write-function #'store--write-form)
+       (read-function #'store--read-form))
   "Create a validated generation store beneath ROOT.
 
 CURRENT-PATHNAME names the pointer file recording which generation should be
@@ -68,7 +140,13 @@ MANIFEST-VERSION alone. MANIFEST-VALIDATOR receives one loaded manifest plist
 and signals when the host's own fields are missing or malformed; the library
 checks only its own fields. PUBLISH-VALIDATOR receives one generation just
 before its core is renamed into place and signals when a host artifact the
-generation depends on is missing."
+generation depends on is missing.
+
+WRITE-FUNCTION and READ-FUNCTION carry portable forms to and from disk. The
+defaults use nothing but Common Lisp, so a minimal recovery image can read a
+store without loading a foreign-function or filesystem library. A host that
+already has its own atomic state layer should pass it here instead, so both
+processes agree on file modes and on how a truncated write is treated."
   (unless (and root current-pathname)
     (generations--fail :selection
                        "A generation store needs a root and a pointer pathname."))
@@ -84,7 +162,9 @@ generation depends on is missing."
                  :accepted-manifest-versions
                  (or accepted-manifest-versions (list manifest-version))
                  :manifest-validator manifest-validator
-                 :publish-validator publish-validator))
+                 :publish-validator publish-validator
+                 :write-function write-function
+                 :read-function read-function))
 
 
 ;;;; -- Generations --
@@ -200,22 +280,16 @@ of the printer state either of them inherited."
       (write record :stream stream)
       (terpri stream))))
 
-(defun generation--write-form (pathname form)
-  "Atomically publish portable FORM at PATHNAME."
-  (snapshot-write pathname form)
+(defun generation--write-form (store pathname form)
+  "Atomically publish portable FORM at PATHNAME using STORE's writer."
+  (funcall (generation-store-write-function store) pathname form)
   pathname)
 
-(defun generation--read-form (pathname)
-  "Return the single portable form stored at PATHNAME."
-  (multiple-value-bind (form sole-form-p)
-      (snapshot-read pathname)
-    (unless sole-form-p
-      (generations--fail :manifest
-                         "A generation record does not hold exactly one form."
-                         :pathname pathname))
-    form))
+(defun generation--read-form (store pathname)
+  "Return the single portable form at PATHNAME using STORE's reader."
+  (funcall (generation-store-read-function store) pathname))
 
-(defun generation-record-failure (generation stage detail)
+(defun generation-record-failure (store generation stage detail)
   "Record a bounded checkpoint failure at STAGE beside GENERATION's artifacts.
 
 The detail is truncated, because it may quote a condition report that a host
@@ -226,7 +300,7 @@ would rather not grow without bound in its state directory."
                 (if (> (length printed) 4000)
                     (subseq printed 0 4000)
                     printed))))
-    (generation--write-form pathname
+    (generation--write-form store pathname
                             (list :checkpoint-failure
                                   :version 1
                                   :id (generation-identifier generation)
@@ -241,7 +315,7 @@ would rather not grow without bound in its state directory."
 (defun generation-load-manifest (pathname store)
   "Load and validate one ready generation manifest from PATHNAME within STORE."
   (let* ((pathname (pathname pathname))
-         (form (generation--read-form pathname)))
+         (form (generation--read-form store pathname)))
     (unless (and (listp form)
                  (eq (first form) :generation)
                  (member (getf (rest form) :version)
@@ -274,16 +348,20 @@ would rather not grow without bound in its state directory."
                      :created-at (or (getf properties :created-at) 0)
                      :status :ready))))
 
-(defun generation-compatible-p (generation)
+(defun generation-compatible-p (generation &optional store)
   "Return true when GENERATION has a plausible core for this exact runtime.
 
 A core saved by a different SBCL build, operating system release, or machine
 type cannot be booted here, so an incompatible generation is reported rather
-than offered for selection."
+than offered for selection. STORE supplies the reader; omit it only when the
+generation came from a store using the default one."
   (not (null
         (handler-case
-            (let ((manifest (generation--read-form
-                             (generation-manifest-pathname generation))))
+            (let* ((reader (if store
+                               (generation-store-read-function store)
+                               #'store--read-form))
+                   (manifest (funcall reader
+                                      (generation-manifest-pathname generation))))
               (and (probe-file (generation-core-pathname generation))
                    (with-open-file (stream (generation-core-pathname generation)
                                            :direction :input

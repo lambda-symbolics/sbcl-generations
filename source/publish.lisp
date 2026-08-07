@@ -117,9 +117,11 @@ selection intact."
     (uiop:rename-file-overwriting-target
      (generation-temporary-core-pathname generation)
      (generation-core-pathname generation))
-    (generation--write-form (generation-manifest-pathname generation)
+    (generation--write-form store
+                            (generation-manifest-pathname generation)
                             (generation-manifest-form generation store))
-    (generation--write-form (generation-store-current-pathname store)
+    (generation--write-form store
+                            (generation-store-current-pathname store)
                             (generation--select-form generation))
     (setf (generation-status generation) :ready)
     generation))
