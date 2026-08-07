@@ -30,6 +30,7 @@
            #:generation-core-probe-output
            #:generation-core-probe-record
            #:generation-core-probe-runner-command
+           #:generation-coordinator-pid
            #:generation-created-at
            #:generation-directory
            #:generation-find
@@ -64,7 +65,8 @@
                 #:checkpoint-error-stage
                 #:generation-compatible-p
                 #:generation-core-pathname
-                #:generation-created-at
+                #:generation-coordinator-pid
+           #:generation-created-at
                 #:generation-find
                 #:generation-identifier
                 #:generation-list
