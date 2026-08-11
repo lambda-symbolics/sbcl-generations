@@ -15,6 +15,7 @@
            #:checkpoint-resume-warning
            #:checkpoint-resume-warning-cause
            #:checkpoint-resume-warning-generation-identifier
+           #:checkpoint-single-threaded-p
            #:fork-checkpoint-backend
            #:generation
            #:generation-compatible-p
@@ -63,6 +64,7 @@
                 #:checkpoint-create
                 #:checkpoint-error
                 #:checkpoint-error-stage
+                #:checkpoint-single-threaded-p
                 #:generation-compatible-p
                 #:generation-core-pathname
                 #:generation-coordinator-pid

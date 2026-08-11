@@ -177,11 +177,13 @@ sets it to :READY or :FAILED."))
 
 ;;;; -- Fork Mechanism --
 
-(defun checkpoint--single-threaded-p ()
-  "Return true when this is the only live Lisp thread.
+(defun checkpoint-single-threaded-p ()
+  "Return true when this is the only live Lisp thread at this instant.
 
-A forked child inherits only the forking thread, so any other live thread would
-be saved into the core as a thread that no longer exists."
+This is a snapshot, not synchronization. Callers must prevent thread creation
+between this check and fork. A forked child inherits only the forking thread, so
+any other live thread would be saved into the core as a thread that no longer
+exists."
   (notany (lambda (thread)
             (and (not (eq thread sb-thread:*current-thread*))
                  (sb-thread:thread-alive-p thread)))
@@ -336,7 +338,7 @@ in the parent."
                                   "A checkpoint is already being published."))
              (when validate
                (setf validated-state (funcall validate precheck-value)))
-             (unless (checkpoint--single-threaded-p)
+             (unless (checkpoint-single-threaded-p)
                (generations--fail
                 :fork
                 "A checkpoint requires the current thread to be the only live thread."))

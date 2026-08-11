@@ -39,6 +39,9 @@ processes that were always going to exit.
 A forked child inherits only the forking thread, so a checkpoint requires the
 caller to be the only live Lisp thread. Any other thread would be written into
 the core as a thread that no longer exists. This is checked rather than assumed.
+Hosts with other fork-and-save paths can use =checkpoint-single-threaded-p= for
+the same exact-Boolean preflight while holding their own exclusion across the
+check and fork. The predicate is a snapshot, not synchronization.
 
 * Why the core is probed
 

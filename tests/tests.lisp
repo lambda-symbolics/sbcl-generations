@@ -163,6 +163,29 @@ and compatibility paths without spending a fork and a real image save."
                    "publishing without a saved core is refused")))
   nil)
 
+(defun tests--single-thread-preflight ()
+  "Exercise the public live-thread checkpoint preflight."
+  (test-assert (eq (checkpoint-single-threaded-p) t)
+               "the current thread alone is reported exactly true")
+  (let ((started (sb-thread:make-semaphore :count 0))
+        (release (sb-thread:make-semaphore :count 0))
+        (thread nil))
+    (unwind-protect
+         (progn
+           (setf thread
+                 (sb-thread:make-thread
+                  (lambda ()
+                    (sb-thread:signal-semaphore started)
+                    (sb-thread:wait-on-semaphore release))
+                  :name "sbcl-generations predicate test"))
+           (sb-thread:wait-on-semaphore started)
+           (test-assert (eq (checkpoint-single-threaded-p) nil)
+                        "another live Lisp thread is reported exactly false"))
+      (when thread
+        (sb-thread:signal-semaphore release)
+        (sb-thread:join-thread thread))))
+  nil)
+
 (defun tests--checkpoint (root)
   "Exercise one real non-stopping checkpoint end to end.
 
@@ -193,7 +216,7 @@ bookkeeping around it."
             :probe-runner
             (sbcl-generations:make-sbcl-core-probe-runner
              :command (or (uiop:getenv "SBCL_GENERATIONS_SBCL") "sbcl")))))
-    (test-assert (sbcl-generations::checkpoint--single-threaded-p)
+    (test-assert (checkpoint-single-threaded-p)
                  "the test image is single threaded before checkpointing")
     (let ((generation (checkpoint-create backend)))
       (test-assert (eq (generation-status generation) :pending)
@@ -242,6 +265,7 @@ bookkeeping around it."
            (tests--manifests (merge-pathnames "manifests/" root))
            (tests--selection (merge-pathnames "selection/" root))
            (tests--backend-validation (merge-pathnames "validation/" root))
+           (tests--single-thread-preflight)
            (tests--checkpoint (merge-pathnames "checkpoint/" root)))
       (uiop:delete-directory-tree root :validate t :if-does-not-exist :ignore)))
   (format t "~&~:D sbcl-generations tests passed.~%" *test-count*)
