@@ -1,11 +1,11 @@
 #+TITLE: sbcl-generations
 #+STARTUP: content
 
-=sbcl-generations= saves a running SBCL image without stopping it, keeps the
-saved images as numbered generations, and lets a process select one to be booted
-next. It is the whole-heap counterpart to =sbcl-workers=: same territory, other
-axis. Where that library runs work in a fresh child, this one preserves the exact
-live state of the process you are already in.
+=sbcl-generations= saves a running SBCL image, keeps the saved images as
+numbered generations, and lets a process select one to be booted next. It is
+the whole-heap counterpart to =sbcl-workers=: that library runs work in a
+fresh child; this one preserves the exact live state of the process you are
+already in.
 
 #+BEGIN_SRC lisp
 (defparameter *store*
@@ -22,34 +22,31 @@ live state of the process you are already in.
 ;; => #<GENERATION "..." :PENDING>, and this process keeps running
 #+END_SRC
 
-* Why it does not stop
+* How a checkpoint is written
 
-=save-lisp-and-die= ends the process that calls it. To keep running, the image
-has to be written by somebody else, so a checkpoint uses two forks:
+=save-lisp-and-die= ends the process that calls it. A checkpoint uses two
+forks so the caller can keep running:
 
-1. The caller forks a *coordinator* and returns immediately. The returned
+1. The caller forks a coordinator and returns immediately. The returned
    generation is =:pending=, and a watcher thread in the caller updates it.
-2. The coordinator forks a *saver*, which is the process that calls
-   =save-lisp-and-die= and dies as designed.
+2. The coordinator forks a saver, which is the process that calls
+   =save-lisp-and-die=.
 3. The coordinator waits for the saver, publishes the result, and exits.
 
 Only step 1 is exclusive, and only briefly. Everything expensive happens in
 processes that were always going to exit.
 
 A forked child inherits only the forking thread, so a checkpoint requires the
-caller to be the only live Lisp thread. Any other thread would be written into
-the core as a thread that no longer exists. This is checked rather than assumed.
-Hosts with other fork-and-save paths can use =checkpoint-single-threaded-p= for
-the same exact-Boolean preflight while holding their own exclusion across the
-check and fork. The predicate is a snapshot, not synchronization.
+caller to be the only live Lisp thread. This is checked. Hosts with other
+fork-and-save paths can use =checkpoint-single-threaded-p= for the same
+exact-Boolean preflight while holding their own exclusion across the check and
+fork. The predicate is a snapshot.
 
-* Why the core is probed
+* How the core is probed
 
-A core is an opaque heap written by a process that no longer exists. The only
-evidence that it holds the image the generation describes is the core saying so,
-so before publication the unpublished core is *booted* with a private argument
-and must print the exact identity it was saved with. A core that prints anything
-else is never published.
+A core is an opaque heap written by a process that no longer exists. Before
+publication the unpublished core is booted with a private argument and must
+print the exact identity it was saved with.
 
 That is also why the library owns the saved core's toplevel:
 =checkpoint-resume-toplevel= answers the probe, and otherwise calls the host
@@ -58,22 +55,27 @@ entry point you supplied with the command-line arguments.
 * Publication order
 
 The core is renamed over its final name, then described by its manifest, then
-named by the selection pointer, each written atomically. An interruption at any
-point leaves the previous selection intact, which is what makes this usable as a
-recovery mechanism rather than only a convenience.
+named by the selection pointer, each written atomically. An interruption at
+any point leaves the previous selection intact.
 
 * Manifests and host metadata
 
-The library owns the envelope: the identifier, the core path, the creation time,
-and the runtime identity that decides whether a core can be booted here at all
-(=:sbcl-version=, =:operating-system=, =:operating-system-version=,
-=:architecture=). A core saved by a different SBCL build cannot be booted, so
-=generation-compatible-p= refuses it and =generation-select= will not choose it.
+The library owns the envelope:
+
+- the identifier
+- the core path
+- the creation time
+- the runtime identity that decides whether a core can be booted here
+  (=:sbcl-version=, =:operating-system=, =:operating-system-version=,
+  =:architecture=)
+
+=generation-compatible-p= refuses a core saved by a different SBCL build, and
+=generation-select= will not choose it.
 
 Everything else belongs to the host. =:metadata= is spliced into the manifest
-flat rather than nested, and =:manifest-version= is the host's number, so a host
-replacing its own reader with this library keeps reading the manifests it has
-already written. Supply =:manifest-validator= to check your own fields and
+flat rather than nested, and =:manifest-version= is the host's number, so a
+host replacing its own reader with this library keeps reading the manifests it
+has already written. Supply =:manifest-validator= to check your own fields and
 =:accepted-manifest-versions= to keep loading older ones.
 
 * Hooks
@@ -95,31 +97,24 @@ moments. Each hook may be omitted.
 holding when the saver runs is written into the core, so clear credentials and
 detach inherited descriptors there.
 
-Whatever =:validate-function= returns is handed to =:resume-function=, which runs
-whether or not the fork succeeded. If the fork succeeded but resuming failed, the
-library signals a =checkpoint-resume-warning= rather than an error: the
-coordinator is already publishing, and failing would report a checkpoint that
-did in fact happen.
+Whatever =:validate-function= returns is handed to =:resume-function=, which
+runs whether or not the fork succeeded. If the fork succeeded but resuming
+failed, the library signals a =checkpoint-resume-warning= rather than an
+error: the coordinator is already publishing, and failing would report a
+checkpoint that did in fact happen.
 
 * Rollback
 
 =generation-request-rollback= selects a generation durably and then signals
-=rollback-requested=. It does not restart anything, because only your launcher
-knows how. Establish a handler where exiting is safe.
+=rollback-requested=. Establish a handler where exiting is safe.
 
 * Diagnostics
 
 Every refusal signals =checkpoint-error= with a stable =stage=: =:backend=,
 =:validation=, =:fork=, =:save=, =:saver-exit=, =:coordinator=, =:probe=,
 =:publish=, =:manifest=, or =:selection=. A failure inside the coordinator or
-saver cannot signal into the caller, so it is recorded as =failure.sexp= beside
-the generation instead.
-
-* Scope
-
-This library saves and retains images. It does not decide *what* your image
-should contain, replay a redefinition log, or manage a preloaded startup core
-keyed to source hashes; those are separate concerns that sit above it.
+saver cannot signal into the caller, so it is recorded as =failure.sexp=
+beside the generation instead.
 
 * Tests
 
@@ -127,10 +122,10 @@ keyed to source hashes; those are separate concerns that sit above it.
 (asdf:test-system :sbcl-generations)
 #+END_SRC
 
-The suite includes one real checkpoint: it forks, saves a genuine image, boots it
-to confirm its identity, and publishes it. That test needs a single-threaded
-image and an =sbcl= on =PATH= able to boot the core it just wrote; set
-=SBCL_GENERATIONS_SBCL= when the right runtime is somewhere else.
+The suite includes one real checkpoint: it forks, saves a genuine image, boots
+it to confirm its identity, and publishes it. That test needs a
+single-threaded image and an =sbcl= on =PATH= able to boot the core it just
+wrote; set =SBCL_GENERATIONS_SBCL= when the right runtime is somewhere else.
 
 * License
 
