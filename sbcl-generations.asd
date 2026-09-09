@@ -13,7 +13,8 @@
                              (:file "generation")
                              (:file "store")
                              (:file "publish")
-                             (:file "checkpoint"))))
+                             (:file "checkpoint")
+                             (:file "checkpoint-fork" :if-feature (:not :win32)))))
   :in-order-to ((asdf:test-op (asdf:test-op #:sbcl-generations/tests))))
 
 (asdf:defsystem #:sbcl-generations/tests
