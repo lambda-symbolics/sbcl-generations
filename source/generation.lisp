@@ -332,6 +332,20 @@ would rather not grow without bound in its state directory."
 
 ;;;; -- Manifest Loading --
 
+(defun generation--core-within-directory-p (core-pathname directory)
+  "Return true when CORE-PATHNAME is lexically contained by DIRECTORY."
+  (or (uiop:subpathp core-pathname directory)
+      (and (uiop:os-windows-p)
+           (uiop:absolute-pathname-p core-pathname)
+           (not (wild-pathname-p core-pathname))
+           (let ((core-directory (pathname-directory core-pathname))
+                 (base-directory (pathname-directory directory)))
+             (and (equalp (pathname-device core-pathname)
+                          (pathname-device directory))
+                  (<= (length base-directory) (length core-directory))
+                  (every #'equalp base-directory
+                         (subseq core-directory 0 (length base-directory))))))))
+
 (defun generation-load-manifest (pathname store)
   "Load and validate one ready generation manifest from PATHNAME within STORE."
   (let* ((pathname (pathname pathname))
@@ -349,7 +363,7 @@ would rather not grow without bound in its state directory."
     (let* ((properties (rest form))
            (directory (uiop:pathname-directory-pathname pathname))
            (core-pathname (pathname (getf properties :core))))
-      (unless (uiop:subpathp core-pathname directory)
+      (unless (generation--core-within-directory-p core-pathname directory)
         (generations--fail :manifest
                            "A generation core is outside its artifact directory."
                            :pathname pathname))
