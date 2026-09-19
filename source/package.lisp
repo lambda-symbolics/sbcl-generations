@@ -17,6 +17,10 @@
            #:checkpoint-resume-warning-generation-identifier
            #:checkpoint-single-threaded-p
            #:fork-checkpoint-backend
+           #:restart-checkpoint-backend
+           #:make-restart-checkpoint-backend
+           #:checkpoint-restart-create
+           #:checkpoint-restart-save-and-exit
            #:generation
            #:generation-compatible-p
            #:generation-core-pathname
@@ -40,6 +44,7 @@
            #:generation-metadata
            #:generation-publish
            #:generation-record-failure
+           #:generation-recreate-pending
            #:generation-request-rollback
            #:generation-select
            #:generation-selected

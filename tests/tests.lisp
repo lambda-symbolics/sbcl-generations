@@ -190,8 +190,7 @@ and compatibility paths without spending a fork and a real image save."
   "Exercise one real non-stopping checkpoint end to end.
 
 This forks, saves a genuine image, boots it to confirm its identity, and
-publishes it. It is the only test that proves the mechanism rather than the
-bookkeeping around it."
+publishes it independently of the supervised restart mechanism."
   (let* ((store (tests--store root :manifest-version 7))
          (prepared nil)
          (resumed nil)
@@ -215,7 +214,8 @@ bookkeeping around it."
                                (setf resumed state))
             :probe-runner
             (sbcl-generations:make-sbcl-core-probe-runner
-             :command (or (uiop:getenv "SBCL_GENERATIONS_SBCL") "sbcl")))))
+             :command (or (uiop:getenv "SBCL_GENERATIONS_SBCL")
+                          (namestring sb-ext:*runtime-pathname*))))))
     (test-assert (checkpoint-single-threaded-p)
                  "the test image is single threaded before checkpointing")
     (let ((generation (checkpoint-create backend)))
@@ -266,6 +266,8 @@ bookkeeping around it."
            (tests--selection (merge-pathnames "selection/" root))
            (tests--backend-validation (merge-pathnames "validation/" root))
            (tests--single-thread-preflight)
+           (tests--restart-checkpoint (merge-pathnames "restart/" root))
+           #-win32
            (tests--checkpoint (merge-pathnames "checkpoint/" root)))
       (uiop:delete-directory-tree root :validate t :if-does-not-exist :ignore)))
   (format t "~&~:D sbcl-generations tests passed.~%" *test-count*)

@@ -42,6 +42,27 @@ fork-and-save paths can use =checkpoint-single-threaded-p= for the same
 exact-Boolean preflight while holding their own exclusion across the check and
 fork. The predicate is a snapshot.
 
+* Supervised save and restart
+
+On Windows, or when a host explicitly chooses a process restart, construct
+=make-restart-checkpoint-backend= with the same host hooks. Call
+=checkpoint-restart-create= to reserve a pending generation. Deliver the current
+command result durably before calling =checkpoint-restart-save-and-exit=.
+
+At that safe boundary the library reruns prechecks, validates and refreshes
+metadata under the host guard, then invokes =:ready-function= with the final
+generation. In that function, atomically record the generation identifier,
+creation time and exact metadata for the supervisor. The prepare hook must clear
+secrets, detach resources and stop other Lisp threads. Saving terminates the
+process; it preserves the exact heap, including mutations after reservation.
+
+After a zero exit, the supervisor reconstructs the unpublished generation with
+=generation-recreate-pending= and calls =generation-publish=. Only then should it
+boot the selected core with the saved session arguments. If saving or probing
+fails, recover through the host's prior image and durable session data. Failed
+saves record =failure.sexp= and exit one. The library does not own the supervisor
+or promise a restart duration.
+
 * How the core is probed
 
 A core is an opaque heap written by a process that no longer exists. Before

@@ -236,6 +236,26 @@ processes agree on file modes and on how a truncated write is treated."
                    :created-at (get-universal-time)
                    :status :pending)))
 
+(defun generation-recreate-pending (store &key identifier created-at metadata)
+  "Recreate an unpublished generation from a supervisor's durable request.
+
+METADATA must be the exact GENERATION-METADATA recorded at the save boundary,
+not the structural properties of a ready manifest. This does not select or
+publish anything; call GENERATION-PUBLISH to probe and publish the saved core."
+  (unless (and (typep store 'generation-store)
+               (stringp identifier) (plusp (length identifier))
+               (not (member identifier '("." "..") :test #'string=))
+               (every (lambda (character)
+                        (or (find character "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.")
+                            nil))
+                      identifier)
+               (typep created-at '(integer 0))
+               (listp metadata) (evenp (length metadata)))
+    (generations--fail :manifest "Invalid pending checkpoint identity."))
+  (let ((generation (generation--create-record store identifier :metadata metadata)))
+    (setf (slot-value generation 'created-at) created-at)
+    generation))
+
 (defun generation--runtime-properties ()
   "Return the runtime identity a saved core must be booted by to be usable."
   (list :sbcl-version (lisp-implementation-version)
