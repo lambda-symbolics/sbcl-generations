@@ -354,17 +354,21 @@ Components compare case-insensitively, which is how Windows compares them."
          (every #'equalp base-components
                 (subseq directory-components 0 (length base-components))))))
 
+(defun generation--within-directory-p (pathname directory)
+  "Return true when file PATHNAME lies in DIRECTORY, lexically or once resolved."
+  (or (uiop:subpathp pathname directory)
+      (and (uiop:absolute-pathname-p pathname)
+           (not (wild-pathname-p pathname))
+           (let ((file-directory (generation--canonical-directory
+                                  (uiop:pathname-directory-pathname pathname)))
+                 (base-directory (generation--canonical-directory directory)))
+             (or (uiop:subpathp file-directory base-directory)
+                 (and (uiop:os-windows-p)
+                      (generation--directory-prefix-p base-directory file-directory)))))))
+
 (defun generation--core-within-directory-p (core-pathname directory)
   "Return true when CORE-PATHNAME lies in DIRECTORY, lexically or once resolved."
-  (or (uiop:subpathp core-pathname directory)
-      (and (uiop:absolute-pathname-p core-pathname)
-           (not (wild-pathname-p core-pathname))
-           (let ((core-directory (generation--canonical-directory
-                                  (uiop:pathname-directory-pathname core-pathname)))
-                 (base-directory (generation--canonical-directory directory)))
-             (or (uiop:subpathp core-directory base-directory)
-                 (and (uiop:os-windows-p)
-                      (generation--directory-prefix-p base-directory core-directory)))))))
+  (generation--within-directory-p core-pathname directory))
 
 (defun generation-load-manifest (pathname store)
   "Load and validate one ready generation manifest from PATHNAME within STORE."
