@@ -332,19 +332,39 @@ would rather not grow without bound in its state directory."
 
 ;;;; -- Manifest Loading --
 
+(defun generation--canonical-directory (directory)
+  "Return DIRECTORY resolved through the filesystem when it exists, else as given.
+
+A manifest records its core with the spelling the checkpoint saw, while a
+directory listing reports the filesystem's own spelling. On Windows the two
+differ whenever a temporary root uses an 8.3 short name such as RUNNER~1, so
+containment is decided on resolved names wherever the filesystem can answer."
+  (let ((directory (uiop:ensure-directory-pathname directory)))
+    (or (ignore-errors (uiop:ensure-directory-pathname (truename directory)))
+        directory)))
+
+(defun generation--directory-prefix-p (base directory)
+  "Return true when directory pathname BASE is DIRECTORY or one of its ancestors.
+
+Components compare case-insensitively, which is how Windows compares them."
+  (let ((base-components (pathname-directory base))
+        (directory-components (pathname-directory directory)))
+    (and (equalp (pathname-device base) (pathname-device directory))
+         (<= (length base-components) (length directory-components))
+         (every #'equalp base-components
+                (subseq directory-components 0 (length base-components))))))
+
 (defun generation--core-within-directory-p (core-pathname directory)
-  "Return true when CORE-PATHNAME is lexically contained by DIRECTORY."
+  "Return true when CORE-PATHNAME lies in DIRECTORY, lexically or once resolved."
   (or (uiop:subpathp core-pathname directory)
-      (and (uiop:os-windows-p)
-           (uiop:absolute-pathname-p core-pathname)
+      (and (uiop:absolute-pathname-p core-pathname)
            (not (wild-pathname-p core-pathname))
-           (let ((core-directory (pathname-directory core-pathname))
-                 (base-directory (pathname-directory directory)))
-             (and (equalp (pathname-device core-pathname)
-                          (pathname-device directory))
-                  (<= (length base-directory) (length core-directory))
-                  (every #'equalp base-directory
-                         (subseq core-directory 0 (length base-directory))))))))
+           (let ((core-directory (generation--canonical-directory
+                                  (uiop:pathname-directory-pathname core-pathname)))
+                 (base-directory (generation--canonical-directory directory)))
+             (or (uiop:subpathp core-directory base-directory)
+                 (and (uiop:os-windows-p)
+                      (generation--directory-prefix-p base-directory core-directory)))))))
 
 (defun generation-load-manifest (pathname store)
   "Load and validate one ready generation manifest from PATHNAME within STORE."
