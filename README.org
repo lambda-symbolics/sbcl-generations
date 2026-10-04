@@ -158,7 +158,8 @@ the runtime identity a generation records. =image-install= saves the image by
 fork where the host can fork and one Lisp thread is alive, and otherwise runs
 the =:fresh-process-command= argv, whose process loads the source and calls
 =image-save=. The saved core is booted with the source root and
-=*image-probe-argument*=, checks its embedded record against that tree, and
+the =:probe-argument= it was saved with (default =*image-probe-argument*=),
+checks its embedded record against that tree, and
 must answer =image-probe-record= exactly. Only then, with the inputs unchanged,
 does =:publish-function= move the core into place and =:write-function= write
 its manifest. =image-current-core= compares the manifest with the tree without

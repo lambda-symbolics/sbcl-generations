@@ -93,7 +93,8 @@
                    :inputs #'tests--image-inputs
                    :toplevel (lambda (arguments) arguments)
                    :prepare (lambda () (setf prepared t))
-                   :probe-runner (tests--image-runner))
+                   :probe-runner (tests--image-runner)
+                   :probe-argument "--test-image-probe")
     (test-assert (not prepared)
                  "the parent does not run the saver's prepare hook")
     (test-assert (equal (image-current-core core tree :inputs #'tests--image-inputs) core)
@@ -104,7 +105,7 @@
     (test-assert (search (generation-core-probe-output
                           (image-probe-record (image-installed-record core)))
                          (core-probe-run (tests--image-runner) core
-                                         (list (namestring tree) *image-probe-argument*)))
+                                         (list (namestring tree) "--test-image-probe")))
                  "the installed core answers its probe")
     (with-open-file (stream (merge-pathnames "a.lisp" tree)
                             :direction :output :if-exists :supersede)
@@ -115,6 +116,6 @@
                      (tests--image-stage
                       (lambda ()
                         (core-probe-run (tests--image-runner) core
-                                        (list (namestring tree) *image-probe-argument*)))))
+                                        (list (namestring tree) "--test-image-probe")))))
                  "the core refuses to vouch for a tree it does not match"))
   nil)

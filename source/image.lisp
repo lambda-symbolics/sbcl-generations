@@ -27,6 +27,9 @@ check its record against the tree before answering.")
 (defvar *image-toplevel-function* nil
   "The host entry point a saved image runs when it is booted normally.")
 
+(defvar *image-saved-probe-argument* nil
+  "The probe argument a saved image answers, chosen when it was saved.")
+
 (defun image--git-output (source-root arguments)
   "Return trimmed output from Git ARGUMENTS run in SOURCE-ROOT."
   (handler-case
@@ -165,17 +168,20 @@ The manifest carries the record the core embeds, so the comparison needs no boot
   "Return the build record embedded in this process's image, or NIL."
   *image-build-record*)
 
-(defun image-save (pathname record &key inputs toplevel prepare)
+(defun image-save (pathname record
+                   &key inputs toplevel prepare (probe-argument *image-probe-argument*))
   "Save this process as the image RECORD describes at PATHNAME and exit.
 
-INPUTS answers later probes, TOPLEVEL receives the command-line arguments when
-the image is booted normally, and PREPARE runs first so the host can clear
-process-specific state. This never returns; a failure exits with status 1."
+INPUTS answers later probes, which pass PROBE-ARGUMENT after the source root.
+TOPLEVEL receives the command-line arguments when the image is booted normally,
+and PREPARE runs first so the host can clear process-specific state. This never
+returns; a failure exits with status 1."
   (handler-case
       (progn
         (setf *image-build-record* record
               *image-inputs-function* inputs
               *image-toplevel-function* toplevel
+              *image-saved-probe-argument* probe-argument
               *checkpoint-in-progress-p* nil
               *checkpoint-core-probe-record* nil)
         (when prepare
@@ -195,7 +201,7 @@ process-specific state. This never returns; a failure exits with status 1."
   (sb-ext:disable-debugger)
   (let ((arguments (uiop:command-line-arguments)))
     (if (and (= (length arguments) 2)
-             (string= (second arguments) *image-probe-argument*))
+             (string= (second arguments) *image-saved-probe-argument*))
         (if (image-build-record-compatible-p *image-build-record* (first arguments)
                                              :inputs *image-inputs-function*)
             (progn
@@ -213,6 +219,7 @@ process-specific state. This never returns; a failure exits with status 1."
 (defun image-install (source-root core-pathname
                       &key inputs toplevel prepare (saver :automatic)
                            fresh-process-command probe-runner
+                           (probe-argument *image-probe-argument*)
                            (publish-function #'image--publish-core)
                            (write-function #'store--write-form))
   "Build, probe, and atomically install an image of SOURCE-ROOT at CORE-PATHNAME.
@@ -220,8 +227,8 @@ process-specific state. This never returns; a failure exits with status 1."
 SAVER :AUTOMATIC forks this process where the host can fork and only one Lisp
 thread is alive; :FRESH-PROCESS, and every host without fork, runs the argv
 FRESH-PROCESS-COMMAND returns for the temporary core pathname, whose process
-must load the source and call IMAGE-SAVE. The saved core is booted through
-PROBE-RUNNER and must report this record, the inputs must be unchanged
+must load the source and call IMAGE-SAVE with the same PROBE-ARGUMENT. The
+saved core is booted through PROBE-RUNNER and must report this record, the inputs must be unchanged
 afterwards, and only then does PUBLISH-FUNCTION move the core into place and
 WRITE-FUNCTION write its manifest. INPUTS, TOPLEVEL and PREPARE are as for
 IMAGE-SAVE. Failures signal CHECKPOINT-ERROR with stages :SOURCE, :FORK, :SAVE,
@@ -255,14 +262,16 @@ IMAGE-SAVE. Failures signal CHECKPOINT-ERROR with stages :SOURCE, :FORK, :SAVE,
                                                 (image-save temporary record
                                                             :inputs inputs
                                                             :toplevel toplevel
-                                                            :prepare prepare))
+                                                            :prepare prepare
+                                                            :probe-argument probe-argument))
                                               temporary)
                             (image--run-saver (funcall fresh-process-command temporary)
                                               temporary))
                         (probe-file temporary))
              (generations--fail :save "The image saver produced no core." :pathname temporary))
            (image--probe temporary source-root record
-                         (or probe-runner (make-sbcl-core-probe-runner)))
+                         (or probe-runner (make-sbcl-core-probe-runner))
+                         probe-argument)
            (unless (equal record (image-build-record source-root :inputs inputs))
              (generations--fail :source "The image inputs changed while it was built."
                                 :pathname source-root))
@@ -302,11 +311,11 @@ IMAGE-SAVE. Failures signal CHECKPOINT-ERROR with stages :SOURCE, :FORK, :SAVE,
                          :pathname temporary
                          :cause condition))))
 
-(defun image--probe (temporary source-root record runner)
-  "Boot TEMPORARY through RUNNER and require RECORD's exact probe answer."
+(defun image--probe (temporary source-root record runner probe-argument)
+  "Boot TEMPORARY through RUNNER with PROBE-ARGUMENT and require RECORD's exact answer."
   (let ((actual (handler-case
                     (core-probe-run runner temporary
-                                    (list (namestring source-root) *image-probe-argument*))
+                                    (list (namestring source-root) probe-argument))
                   (checkpoint-error (condition)
                     (error condition))
                   (error (condition)
