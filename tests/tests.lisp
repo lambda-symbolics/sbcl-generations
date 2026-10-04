@@ -267,6 +267,9 @@ publishes it independently of the supervised restart mechanism."
            (tests--backend-validation (merge-pathnames "validation/" root))
            (tests--single-thread-preflight)
            (tests--restart-checkpoint (merge-pathnames "restart/" root))
+           (tests--image-records (merge-pathnames "image-records/" root))
+           #-win32
+           (tests--image-install (merge-pathnames "image-install/" root))
            #-win32
            (tests--checkpoint (merge-pathnames "checkpoint/" root)))
       (uiop:delete-directory-tree root :validate t :if-does-not-exist :ignore)))

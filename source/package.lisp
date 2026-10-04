@@ -16,6 +16,18 @@
            #:checkpoint-resume-warning-cause
            #:checkpoint-resume-warning-generation-identifier
            #:checkpoint-single-threaded-p
+           #:core-probe-run
+           #:*image-probe-argument*
+           #:image-build-record
+           #:image-build-record-p
+           #:image-build-record-compatible-p
+           #:image-current-core
+           #:image-install
+           #:image-installed-record
+           #:image-manifest-pathname
+           #:image-probe-record
+           #:image-running-build-record
+           #:image-save
            #:fork-checkpoint-backend
            #:restart-checkpoint-backend
            #:make-restart-checkpoint-backend
@@ -70,6 +82,16 @@
                 #:checkpoint-error
                 #:checkpoint-error-stage
                 #:checkpoint-single-threaded-p
+                #:core-probe-run
+                #:*image-probe-argument*
+                #:image-build-record
+                #:image-build-record-p
+                #:image-build-record-compatible-p
+                #:image-current-core
+                #:image-install
+                #:image-installed-record
+                #:image-probe-record
+                #:generation-core-probe-output
                 #:generation-compatible-p
                 #:generation-core-pathname
                 #:generation-coordinator-pid

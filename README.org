@@ -137,6 +137,34 @@ Every refusal signals =checkpoint-error= with a stable =stage=: =:backend=,
 saver cannot signal into the caller, so it is recorded as =failure.sexp=
 beside the generation instead.
 
+* Prebuilt images
+
+A prebuilt image is a core saved from a process that loaded a source tree, so a
+host can boot it instead of loading the tree again:
+
+#+BEGIN_SRC lisp
+(sbcl-generations:image-install
+ #P"/src/app/" #P"/var/lib/app/active/app.core"
+ :inputs (lambda (root) (list "app.asd" "src/main.lisp"))
+ :toplevel #'app-main)
+
+(sbcl-generations:image-current-core
+ #P"/var/lib/app/active/app.core" #P"/src/app/"
+ :inputs (lambda (root) (list "app.asd" "src/main.lisp")))
+#+END_SRC
+
+=image-build-record= names every input by its Git content hash together with
+the runtime identity a generation records. =image-install= saves the image by
+fork where the host can fork and one Lisp thread is alive, and otherwise runs
+the =:fresh-process-command= argv, whose process loads the source and calls
+=image-save=. The saved core is booted with the source root and
+=*image-probe-argument*=, checks its embedded record against that tree, and
+must answer =image-probe-record= exactly. Only then, with the inputs unchanged,
+does =:publish-function= move the core into place and =:write-function= write
+its manifest. =image-current-core= compares the manifest with the tree without
+booting anything, and =image-running-build-record= returns the record inside a
+booted image. =:prepare= clears host state in the saver before the save.
+
 * Tests
 
 #+BEGIN_SRC lisp

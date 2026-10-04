@@ -44,6 +44,28 @@ the build that saved it."
                                 "sbcl")
                    :probe-argument probe-argument)))
 
+(defgeneric core-probe-run (runner core-pathname arguments)
+  (:documentation
+   "Boot CORE-PATHNAME through RUNNER with command-line ARGUMENTS and return its output."))
+
+(defmethod core-probe-run ((runner sbcl-core-probe-runner) core-pathname arguments)
+  "Boot CORE-PATHNAME with RUNNER's SBCL and capture everything it prints."
+  (handler-case
+      (uiop:run-program
+       (list* (generation-core-probe-runner-command runner)
+              "--noinform"
+              "--core"
+              (namestring core-pathname)
+              "--end-runtime-options"
+              arguments)
+       :input nil
+       :output :string
+       :error-output :output)
+    (error ()
+      (generations--fail :probe
+                         "The saved core could not run its internal probe."
+                         :pathname core-pathname))))
+
 (defgeneric generation-core-probe-run (runner generation)
   (:documentation
    "Boot GENERATION's unpublished core through RUNNER and return its output."))
@@ -51,22 +73,9 @@ the build that saved it."
 (defmethod generation-core-probe-run
     ((runner sbcl-core-probe-runner) (generation generation))
   "Boot GENERATION's unpublished core and capture its internal probe output."
-  (handler-case
-      (uiop:run-program
-       (list (generation-core-probe-runner-command runner)
-             "--noinform"
-             "--core"
-             (namestring (generation-temporary-core-pathname generation))
-             "--end-runtime-options"
-             (generation-core-probe-runner-argument runner))
-       :input nil
-       :output :string
-       :error-output :output)
-    (error ()
-      (generations--fail :probe
-                         "The saved core could not run its internal probe."
-                         :pathname
-                         (generation-temporary-core-pathname generation)))))
+  (core-probe-run runner
+                  (generation-temporary-core-pathname generation)
+                  (list (generation-core-probe-runner-argument runner))))
 
 (defun generation--validate-core-probe (generation runner)
   "Require RUNNER to report GENERATION's exact embedded identity.

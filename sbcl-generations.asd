@@ -15,6 +15,7 @@
                              (:file "publish")
                              (:file "checkpoint")
                              (:file "checkpoint-restart")
+                             (:file "image")
                              (:file "checkpoint-fork" :if-feature (:not :win32)))))
   :in-order-to ((asdf:test-op (asdf:test-op #:sbcl-generations/tests))))
 
@@ -26,7 +27,8 @@
                 :serial t
                 :components ((:file "package")
                              (:file "tests")
-                             (:file "restart-tests"))))
+                             (:file "restart-tests")
+                             (:file "image-tests"))))
   :perform (asdf:test-op (operation component)
              (declare (ignore operation component))
              (uiop:symbol-call '#:sbcl-generations/tests '#:run-tests)))
