@@ -27,6 +27,15 @@
     (ensure-directories-exist root)
     root))
 
+(defun tests--delete-root (root)
+  "Remove the test tree, including read-only Git objects on Windows."
+  #+win32
+  (uiop:run-program
+   (list "attrib.exe" "-R" "-H" "-S"
+         (concatenate 'string (uiop:native-namestring root) "*") "/S" "/D")
+   :output *standard-output* :error-output *error-output*)
+  (uiop:delete-directory-tree root :validate t :if-does-not-exist :ignore))
+
 (defun tests--write-core (pathname bytes)
   "Write a placeholder core file of BYTES octets at PATHNAME."
   (ensure-directories-exist pathname)

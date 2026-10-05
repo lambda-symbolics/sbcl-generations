@@ -272,6 +272,6 @@ publishes it independently of the supervised restart mechanism."
            (tests--image-install (merge-pathnames "image-install/" root))
            #-win32
            (tests--checkpoint (merge-pathnames "checkpoint/" root)))
-      (uiop:delete-directory-tree root :validate t :if-does-not-exist :ignore)))
+      (tests--delete-root root)))
   (format t "~&~:D sbcl-generations tests passed.~%" *test-count*)
   nil)
