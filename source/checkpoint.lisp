@@ -81,7 +81,7 @@ ordinary startup."
     :initarg :around-function
     :reader checkpoint-backend-around-function
     :type (or null function)
-    :documentation "Wraps the whole checkpoint in a host dynamic context, or NIL.")
+    :documentation "Wraps checkpoint creation after the precheck in a host dynamic context, or NIL.")
    (fork-guard-function
     :initarg :fork-guard-function
     :reader checkpoint-backend-fork-guard-function

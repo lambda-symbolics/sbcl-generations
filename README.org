@@ -106,8 +106,8 @@ moments. Each hook may be omitted.
 
 | Hook | Runs | For |
 |------+------+-----|
-| =:around-function= | wrapping everything | holding whatever dynamic context the others assume |
-| =:precheck-function= | before anything is exclusive | slow validation, such as checking a source tree |
+| =:around-function= | wrapping creation after the precheck | holding the dynamic context for validation, saving, and parent restoration |
+| =:precheck-function= | before the host context and guard | slow validation, such as checking a source tree |
 | =:fork-guard-function= | wrapping the checks and fork | making that region exclusive |
 | =:validate-function= | inside that region | re-checking, and suspending what must not be saved |
 | =:metadata-function= | inside that region | the manifest properties, and state that must not drift before the fork |

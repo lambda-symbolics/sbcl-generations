@@ -186,6 +186,41 @@ and compatibility paths without spending a fork and a real image save."
         (sb-thread:join-thread thread))))
   nil)
 
+(defun tests--checkpoint-precheck-order (root)
+  "Test precheck completion and failure before either backend's host context."
+  (loop for constructor in (list #-win32 #'make-checkpoint-backend
+                                #'sbcl-generations:make-restart-checkpoint-backend)
+        for index from 0
+        do (dolist (fail-p '(nil t))
+             (let* ((precheck-count 0)
+                    (around-entered-p nil)
+                    (backend
+                      (funcall constructor
+                               :store (tests--store
+                                       (merge-pathnames (format nil "~D-~A/" index fail-p) root)
+                                       :manifest-version 7)
+                               :toplevel-function (lambda (arguments)
+                                                    (declare (ignore arguments)))
+                               :precheck-function
+                               (lambda ()
+                                 (incf precheck-count)
+                                 (when fail-p
+                                   (error 'checkpoint-error :message "Precheck failed."
+                                                            :stage :validation))
+                                 :prechecked)
+                               :around-function
+                               (lambda (thunk)
+                                 (declare (ignore thunk))
+                                 (setf around-entered-p t)
+                                 (error 'checkpoint-error :message "Stop before saving."
+                                                          :stage :validation)))))
+               (handler-case (checkpoint-create backend)
+                 (checkpoint-error () nil))
+               (test-assert (= precheck-count 1) "each request runs its precheck once")
+               (test-assert (eq around-entered-p (not fail-p))
+                            "only a completed precheck enters the host context"))))
+  nil)
+
 (defun tests--checkpoint (root)
   "Exercise one real non-stopping checkpoint end to end.
 
@@ -194,6 +229,7 @@ publishes it independently of the supervised restart mechanism."
   (let* ((store (tests--store root :manifest-version 7))
          (prepared nil)
          (resumed nil)
+         (around-active-p nil)
          (backend
            (make-checkpoint-backend
             :store store
@@ -202,6 +238,10 @@ publishes it independently of the supervised restart mechanism."
                                  nil)
             :identifier-function (lambda () "checkpointed")
             :precheck-function (lambda () :prechecked)
+           :around-function (lambda (thunk)
+                              (setf around-active-p t)
+                              (unwind-protect (funcall thunk)
+                                (setf around-active-p nil)))
             :metadata-function (lambda (identifier precheck)
                                  (list :requested-by identifier
                                        :precheck precheck))
@@ -209,6 +249,9 @@ publishes it independently of the supervised restart mechanism."
                                  (and (eq precheck :prechecked) :validated))
             :prepare-function (lambda (generation)
                                 (declare (ignore generation))
+                                (unless around-active-p
+                                  (error 'checkpoint-error :message "Saver left the host context."
+                                                           :stage :save))
                                 (setf prepared t))
             :resume-function (lambda (state)
                                (setf resumed state))
@@ -219,6 +262,7 @@ publishes it independently of the supervised restart mechanism."
     (test-assert (checkpoint-single-threaded-p)
                  "the test image is single threaded before checkpointing")
     (let ((generation (checkpoint-create backend)))
+      (test-assert (not around-active-p) "the parent leaves the host context after fork")
       (test-assert (eq (generation-status generation) :pending)
                    "a fresh checkpoint is pending while its coordinator runs")
       (test-assert (eq resumed :validated)
@@ -270,6 +314,7 @@ publishes it independently of the supervised restart mechanism."
            (tests--image-records (merge-pathnames "image-records/" root))
            #-win32
            (tests--image-install (merge-pathnames "image-install/" root))
+           (tests--checkpoint-precheck-order (merge-pathnames "precheck-order/" root))
            #-win32
            (tests--checkpoint (merge-pathnames "checkpoint/" root)))
       (tests--delete-root root)))

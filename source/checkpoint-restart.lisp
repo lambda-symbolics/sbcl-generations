@@ -50,12 +50,12 @@ Only precheck and metadata hooks run. The application may durably deliver this
 identity to its user before saving. A second request on this backend is refused."
   (unless (typep backend 'restart-checkpoint-backend)
     (generations--fail :backend "Expected a restart checkpoint backend."))
-  (checkpoint-restart--call
-   (checkpoint-backend-around-function backend)
-   (lambda ()
-     (let* ((precheck (checkpoint-backend-precheck-function backend))
-            (value (and precheck (funcall precheck)))
-            (metadata (checkpoint-backend-metadata-function backend)))
+  (let* ((precheck (checkpoint-backend-precheck-function backend))
+         (value (and precheck (funcall precheck)))
+         (metadata (checkpoint-backend-metadata-function backend)))
+    (checkpoint-restart--call
+     (checkpoint-backend-around-function backend)
+     (lambda ()
        (checkpoint-restart--call
         (checkpoint-backend-fork-guard-function backend)
         (lambda ()
@@ -87,11 +87,11 @@ artifact, attempts the resume hook when validation completed, and exits one."
   (let ((state nil)
         (validated-p nil))
     (handler-case
-        (checkpoint-restart--call
-         (checkpoint-backend-around-function backend)
-         (lambda ()
-           (let* ((precheck (checkpoint-backend-precheck-function backend))
-                  (value (and precheck (funcall precheck))))
+        (let* ((precheck (checkpoint-backend-precheck-function backend))
+               (value (and precheck (funcall precheck))))
+          (checkpoint-restart--call
+           (checkpoint-backend-around-function backend)
+           (lambda ()
              (checkpoint-restart--call
               (checkpoint-backend-fork-guard-function backend)
               (lambda ()

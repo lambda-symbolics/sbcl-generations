@@ -10,6 +10,8 @@
   "Save an exact heap, or exercise the requested failure MODE in a child."
   (let* ((store (tests--store root))
          (revision 1)
+         (around-active-p nil)
+         (precheck-count 0)
          (backend
            (sbcl-generations:make-restart-checkpoint-backend
             :store store
@@ -21,7 +23,15 @@
               (assert (= (first *restart-test-heap*) 42))
               (assert (null *restart-test-secret*))
               (format t "exact-heap-resumed~%"))
-            :precheck-function (lambda () revision)
+           :precheck-function (lambda ()
+                                (assert (not around-active-p))
+                                (incf precheck-count)
+                                revision)
+           :around-function (lambda (thunk)
+                              (assert (= precheck-count revision))
+                              (setf around-active-p t)
+                              (unwind-protect (funcall thunk)
+                                (setf around-active-p nil)))
             :metadata-function (lambda (identifier value)
                                  (declare (ignore identifier))
                                  (list :revision value :session "resumed-session"))
@@ -34,6 +44,7 @@
             :prepare-function
             (lambda (generation)
               (declare (ignore generation))
+             (assert around-active-p)
               (setf *restart-test-secret* nil)
               (when (eq mode :prepare-failure)
                 (error "prepare fixture")))

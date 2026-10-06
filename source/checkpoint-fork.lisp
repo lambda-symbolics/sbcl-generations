@@ -120,19 +120,21 @@ in the parent."
 
 (defmethod checkpoint-create ((backend fork-checkpoint-backend))
   "Fork a coordinator while briefly exclusive, then let the parent continue."
-  (let ((around (checkpoint-backend-around-function backend)))
+  ;; Run the potentially slow precheck before the host context, which may
+  ;; quiesce terminal and application threads.
+  (let* ((precheck (checkpoint-backend-precheck-function backend))
+         (precheck-value (and precheck (funcall precheck)))
+         (around (checkpoint-backend-around-function backend)))
     (if around
-        (funcall around (lambda () (checkpoint--create backend)))
-        (checkpoint--create backend))))
+        (funcall around (lambda () (checkpoint--create backend precheck-value)))
+        (checkpoint--create backend precheck-value))))
 
-(defun checkpoint--create (backend)
+(defun checkpoint--create (backend precheck-value)
   "Create one checkpoint, assuming any host dynamic context is established."
   (let* ((store (checkpoint-backend-store backend))
-         (precheck (checkpoint-backend-precheck-function backend))
          (metadata-function (checkpoint-backend-metadata-function backend))
          (validate (checkpoint-backend-validate-function backend))
          (guard (checkpoint-backend-fork-guard-function backend))
-         (precheck-value (and precheck (funcall precheck)))
          (generation nil)
          (validated-state nil)
          (coordinator-p nil)
