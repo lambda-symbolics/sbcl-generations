@@ -30,22 +30,6 @@ check its record against the tree before answering.")
 (defvar *image-saved-probe-argument* nil
   "The probe argument a saved image answers, chosen when it was saved.")
 
-(defun image--git-output (source-root arguments)
-  "Return trimmed output from Git ARGUMENTS run in SOURCE-ROOT."
-  (handler-case
-      (string-trim
-       '(#\Space #\Tab #\Newline #\Return)
-       (uiop:run-program (append (list "git" "-c" "safe.directory=*"
-                                       "-C" (namestring source-root))
-                                 arguments)
-                         :output :string
-                         :error-output :output))
-    (error (condition)
-      (generations--fail :source
-                         (format nil "Could not identify the image source: ~A" condition)
-                         :pathname source-root
-                         :cause condition))))
-
 (defun image--inputs (source-root inputs)
   "Return the sorted relative input pathnames INPUTS names beneath SOURCE-ROOT."
   (let ((pathnames (funcall inputs source-root)))
@@ -57,32 +41,24 @@ check its record against the tree before answering.")
     (sort (remove-duplicates (copy-list pathnames) :test #'string=) #'string<)))
 
 (defun image--source-files (source-root pathnames)
-  "Return (PATHNAME BLOB) pairs giving the Git content identity of PATHNAMES."
-  (let ((blobs (uiop:split-string
-                (image--git-output source-root (append '("hash-object" "--") pathnames))
-                :separator '(#\Newline #\Return))))
-    (unless (= (length blobs) (length pathnames))
-      (generations--fail :source "Git returned the wrong number of source identities."
-                         :pathname source-root))
-    (mapcar #'list pathnames blobs)))
+  "Return (PATHNAME BLOB) pairs giving the content identity of PATHNAMES."
+  (source-file-identities (make-source-provenance source-root) pathnames))
 
 (defun image-build-record (source-root &key inputs)
   "Return the exact source and runtime identity of an image of SOURCE-ROOT.
 
 INPUTS is a function of the source root returning the relative pathnames the
-image is built from. Each is identified by its Git content hash, so the record
-changes with any edit, committed or not."
+image is built from. Each is identified by its current byte content hash. Git
+and Jujutsu provenance is selected by MAKE-SOURCE-PROVENANCE."
   (let* ((source-root (uiop:ensure-directory-pathname source-root))
+         (source (make-source-provenance source-root))
          (pathnames (image--inputs source-root inputs)))
     (append
      (list :sbcl-generations-image
            :version *image-record-version*
-           :source-commit (image--git-output source-root '("rev-parse" "HEAD"))
-           :source-clean-p (zerop (length (image--git-output
-                                           source-root
-                                           (append '("status" "--porcelain" "--")
-                                                   pathnames))))
-           :source-files (image--source-files source-root pathnames))
+           :source-commit (source-revision source)
+           :source-clean-p (source-clean-p source :paths pathnames)
+           :source-files (source-file-identities source pathnames))
      (generation--runtime-properties))))
 
 (defun image--source-files-p (value)

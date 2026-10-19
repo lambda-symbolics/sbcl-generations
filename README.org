@@ -166,6 +166,40 @@ its manifest. =image-current-core= compares the manifest with the tree without
 booting anything, and =image-running-build-record= returns the record inside a
 booted image. =:prepare= clears host state in the saver before the save.
 
+** Source provenance
+
+Use the same source protocol for application-specific build records:
+
+#+BEGIN_SRC lisp
+(let ((source (sbcl-generations:make-source-provenance #P"/src/app/")))
+  (list :revision (sbcl-generations:source-revision source)
+        :clean-p (sbcl-generations:source-clean-p source :paths '("src/main.lisp"))
+        :files (sbcl-generations:source-file-identities source '("src/main.lisp"))))
+#+END_SRC
+
+=make-source-provenance= selects the nearest ancestor containing =.jj= or =.git=,
+including Git's linked-worktree files. In a colocated checkout it selects jj.
+=source-root= is the canonical input root, and =source-kind= returns =:git=,
+=:jj= or =:directory=. A failed selected backend signals =checkpoint-error=
+at stage =:source= with a =retry= restart; it never substitutes another
+backend's revision.
+
+Git revisions are =HEAD=. Jujutsu revisions are the parents of the working-copy
+commit =@=, joined with =+= for merges. Cleanliness compares =@= against its
+merged parents, not Git's possibly stale =HEAD=. jj snapshots current files
+before querying them; requested files excluded by its snapshot policy count as
+dirty. =source-clean-p= accepts literal relative filenames, or omitted =:paths=
+for the whole tree. =source-file-identities= returns ordered =(PATH BLOB)= pairs
+for current file bytes and signals on missing inputs. It retains Git's object
+format in Git trees and uses streaming SHA1 Git blob hashes elsewhere.
+
+An unversioned directory has revision ="unversioned"= and is never clean.
+Its image records still compare exact input bytes. Deterministic Git metadata
+provided by build systems, including stat-less read-only Nix indexes, uses the
+Git backend without an index refresh. Build-record and probe formats are
+unchanged. Fresh savers and booted-core probes select provenance directly from
+the supplied source root; hosts need no dynamic backend bindings.
+
 * Tests
 
 #+BEGIN_SRC lisp
@@ -176,6 +210,11 @@ The suite includes one real checkpoint: it forks, saves a genuine image, boots
 it to confirm its identity, and publishes it. That test needs a
 single-threaded image and an =sbcl= on =PATH= able to boot the core it just
 wrote; set =SBCL_GENERATIONS_SBCL= when the right runtime is somewhere else.
+
+The source tests run actual Git repositories, linked worktrees, shared object
+stores, binary hashing, and fresh-process image savers and probes. Install =jj=
+on =PATH= to include standalone and colocated Jujutsu integration cases;
+otherwise those cases are reported as skipped.
 
 * License
 

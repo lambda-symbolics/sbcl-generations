@@ -28,6 +28,13 @@
            #:image-probe-record
            #:image-running-build-record
            #:image-save
+           #:source-provenance
+           #:make-source-provenance
+           #:source-root
+           #:source-kind
+           #:source-revision
+           #:source-clean-p
+           #:source-file-identities
            #:fork-checkpoint-backend
            #:restart-checkpoint-backend
            #:make-restart-checkpoint-backend

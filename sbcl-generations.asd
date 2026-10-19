@@ -5,6 +5,7 @@
   :version "0.1.0"
   :serial t
   :depends-on (#:bordeaux-threads
+               #:ironclad
                #:sb-posix)
   :components ((:module "source"
                 :serial t
@@ -15,6 +16,7 @@
                              (:file "publish")
                              (:file "checkpoint")
                              (:file "checkpoint-restart")
+                             (:file "source-provenance")
                              (:file "image")
                              (:file "checkpoint-fork" :if-feature (:not :win32)))))
   :in-order-to ((asdf:test-op (asdf:test-op #:sbcl-generations/tests))))
@@ -28,7 +30,8 @@
                 :components ((:file "package")
                              (:file "tests")
                              (:file "restart-tests")
-                             (:file "image-tests"))))
+                             (:file "image-tests")
+                             (:file "source-provenance-tests"))))
   :perform (asdf:test-op (operation component)
              (declare (ignore operation component))
              (uiop:symbol-call '#:sbcl-generations/tests '#:run-tests)))

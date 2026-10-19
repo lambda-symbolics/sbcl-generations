@@ -312,6 +312,7 @@ publishes it independently of the supervised restart mechanism."
            (tests--single-thread-preflight)
            (tests--restart-checkpoint (merge-pathnames "restart/" root))
            (tests--image-records (merge-pathnames "image-records/" root))
+           (tests--source-provenance (merge-pathnames "source-provenance/" root))
            #-win32
            (tests--image-install (merge-pathnames "image-install/" root))
            (tests--checkpoint-precheck-order (merge-pathnames "precheck-order/" root))
