@@ -200,7 +200,22 @@ Git backend without an index refresh. Build-record and probe formats are
 unchanged. Fresh savers and booted-core probes select provenance directly from
 the supplied source root; hosts need no dynamic backend bindings.
 
-* Tests
+* Development
+
+#+BEGIN_SRC sh
+./script/bootstrap
+./script/check
+./script/check --fix
+#+END_SRC
+
+=./script/bootstrap= installs the dependencies the =qlfile= pins into =.qlot/=.
+=./script/check= runs the tests, then checks the source with
+[[https://github.com/lambda-symbolics/cheque][cheque]] as =cheque.sexp=
+configures it. =--fix= skips the tests and repairs what cheque can repair.
+cheque and its tools are development dependencies: =checks/qlfile= lists them,
+and the check installs them on first use into =~/.cache/cheque/tools/=.
+
+The check runs the same tests as this form in a REPL:
 
 #+BEGIN_SRC lisp
 (asdf:test-system :sbcl-generations)
