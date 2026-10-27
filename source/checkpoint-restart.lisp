@@ -130,11 +130,14 @@ artifact, attempts the resume hook when validation completed, and exits one."
                  :executable nil :purify nil :compression nil))))))
       (serious-condition (condition)
         (setf (generation-status generation) :failed)
+        ; mallet:suppress no-ignore-errors -- the process must reach exit when recording fails
         (ignore-errors
           (generation-record-failure (checkpoint-backend-store backend)
                                      generation :save condition))
         (when validated-p
           (let ((resume (checkpoint-backend-resume-function backend)))
-            (when resume (ignore-errors (funcall resume state)))))
+            (when resume
+              ; mallet:suppress no-ignore-errors -- the process must reach exit when the host's resume fails
+              (ignore-errors (funcall resume state)))))
         (sb-ext:exit :code 1))))
   nil)

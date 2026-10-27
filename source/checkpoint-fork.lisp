@@ -31,6 +31,7 @@ before that is recorded beside the generation so the parent can explain it."
          :purify      nil
          :compression nil))
     (error (condition)
+      ; mallet:suppress no-ignore-errors -- the saver must reach _exit when recording fails
       (ignore-errors (generation-record-failure
                       (checkpoint-backend-store backend) generation
                       :save condition))
@@ -72,6 +73,7 @@ on the saver and then publishes, and it exits without returning to any host code
                                    status))))
                     (sb-posix:_exit 1))))))
     (error (condition)
+      ; mallet:suppress no-ignore-errors -- the coordinator must reach _exit when recording fails
       (ignore-errors (generation-record-failure
                       (checkpoint-backend-store backend) generation
                       :coordinator condition))
