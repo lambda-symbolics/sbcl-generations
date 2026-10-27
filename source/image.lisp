@@ -84,7 +84,8 @@ and Jujutsu provenance is selected by MAKE-SOURCE-PROVENANCE."
                (and (stringp commit) (plusp (length commit))))
              (typep (getf (rest value) :source-clean-p) 'boolean)
              (image--source-files-p (getf (rest value) :source-files))
-             (loop for (key nil) on (generation--runtime-properties) by #'cddr
+             (loop for (key nil) on (generation--runtime-properties)
+                     by #'generations--plist-next
                    always (stringp (getf (rest value) key)))))))
 
 (defun image-build-record-compatible-p (record source-root &key inputs)
@@ -95,7 +96,8 @@ and Jujutsu provenance is selected by MAKE-SOURCE-PROVENANCE."
                   (files       (and (image-build-record-p record)
                                     (getf (rest record) :source-files))))
               (and files
-                   (loop for (key value) on (generation--runtime-properties) by #'cddr
+                   (loop for (key value) on (generation--runtime-properties)
+                           by #'generations--plist-next
                          always (equal (getf (rest record) key) value))
                    (equal (mapcar #'first files) (image--inputs source-root inputs))
                    (equal files (image--source-files source-root (mapcar #'first files)))))

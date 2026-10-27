@@ -263,6 +263,10 @@ publish anything; call GENERATION-PUBLISH to probe and publish the saved core."
         :operating-system-version (software-version)
         :architecture             (machine-type)))
 
+(defun generations--plist-next (tail)
+  "Return plist TAIL without its first key and value."
+  (nthcdr 2 tail))
+
 (defun generation-manifest-form (generation store)
   "Return the portable ready manifest for GENERATION within STORE.
 
@@ -427,7 +431,7 @@ generation came from a store using the default one."
                                            :element-type '(unsigned-byte 8))
                      (> (file-length stream) 1048576))
                    (loop for (key value) on (generation--runtime-properties)
-                           by #'cddr
+                           by #'generations--plist-next
                          always (equal (getf (rest manifest) key) value))
                    t))
           (error ()
