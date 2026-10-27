@@ -34,7 +34,8 @@ before that is recorded beside the generation so the parent can explain it."
       ; mallet:suppress no-ignore-errors -- the saver must reach _exit when recording fails
       (ignore-errors (generation-record-failure
                       (checkpoint-backend-store backend) generation
-                      :save condition))
+                      :stage  :save
+                      :detail condition))
       (sb-posix:_exit 1)))
   nil)
 
@@ -65,18 +66,19 @@ on the saver and then publishes, and it exits without returning to any host code
                       (generation-record-failure
                        (checkpoint-backend-store backend)
                        generation
-                       :saver-exit
-                       (if (sb-posix:wifexited status)
-                           (format nil "Saver exited with status ~D."
-                                   (sb-posix:wexitstatus status))
-                           (format nil "Saver terminated with status word ~D."
-                                   status))))
+                       :stage  :saver-exit
+                       :detail (if (sb-posix:wifexited status)
+                                   (format nil "Saver exited with status ~D."
+                                           (sb-posix:wexitstatus status))
+                                   (format nil "Saver terminated with status word ~D."
+                                           status))))
                     (sb-posix:_exit 1))))))
     (error (condition)
       ; mallet:suppress no-ignore-errors -- the coordinator must reach _exit when recording fails
       (ignore-errors (generation-record-failure
                       (checkpoint-backend-store backend) generation
-                      :coordinator condition))
+                      :stage  :coordinator
+                      :detail condition))
       (sb-posix:_exit 1)))
   nil)
 

@@ -313,7 +313,7 @@ of the printer state either of them inherited."
   "Return the single portable form at PATHNAME using STORE's reader."
   (funcall (generation-store-read-function store) pathname))
 
-(defun generation-record-failure (store generation stage detail)
+(defun generation-record-failure (store generation &key stage detail)
   "Record a bounded checkpoint failure at STAGE beside GENERATION's artifacts.
 
 The detail is truncated, because it may quote a condition report that a host

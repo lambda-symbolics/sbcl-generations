@@ -133,7 +133,9 @@ artifact, attempts the resume hook when validation completed, and exits one."
         ; mallet:suppress no-ignore-errors -- the process must reach exit when recording fails
         (ignore-errors
           (generation-record-failure (checkpoint-backend-store backend)
-                                     generation :save condition))
+                                     generation
+                                     :stage  :save
+                                     :detail condition))
         (when validated-p
           (let ((resume (checkpoint-backend-resume-function backend)))
             (when resume
