@@ -40,11 +40,11 @@
   "Write a placeholder core file of BYTES octets at PATHNAME."
   (ensure-directories-exist pathname)
   (with-open-file (stream pathname
-                          :direction :output
-                          :element-type '(unsigned-byte 8)
-                          :if-exists :supersede
+                          :direction         :output
+                          :element-type      '(unsigned-byte 8)
+                          :if-exists         :supersede
                           :if-does-not-exist :create)
-    (write-sequence (make-array bytes :element-type '(unsigned-byte 8)
+    (write-sequence (make-array bytes :element-type    '(unsigned-byte 8)
                                       :initial-element 0)
                     stream))
   pathname)

@@ -4,8 +4,8 @@
 
 (defclass restart-checkpoint-backend (checkpoint-backend)
   ((pending-generation
-    :initform nil
-    :accessor checkpoint-restart--pending-generation
+    :initform      nil
+    :accessor      checkpoint-restart--pending-generation
     :documentation "The reserved generation, or NIL before a request."))
   (:documentation "An exact heap checkpoint saved by a supervised process."))
 
@@ -27,17 +27,17 @@ it. No reconstruction or fork is used."
   (unless (functionp toplevel-function)
     (generations--fail :backend "A checkpoint backend needs a toplevel function."))
   (make-instance 'restart-checkpoint-backend
-                 :store store
-                 :toplevel-function toplevel-function
+                 :store               store
+                 :toplevel-function   toplevel-function
                  :identifier-function identifier-function
-                 :precheck-function precheck-function
-                 :metadata-function metadata-function
-                 :validate-function validate-function
-                 :prepare-function prepare-function
-                 :resume-function resume-function
-                 :around-function around-function
+                 :precheck-function   precheck-function
+                 :metadata-function   metadata-function
+                 :validate-function   validate-function
+                 :prepare-function    prepare-function
+                 :resume-function     resume-function
+                 :around-function     around-function
                  :fork-guard-function fork-guard-function
-                 :probe-runner probe-runner))
+                 :probe-runner        probe-runner))
 
 (defun checkpoint-restart--call (hook thunk)
   "Call THUNK within optional host HOOK."
@@ -51,7 +51,7 @@ identity to its user before saving. A second request on this backend is refused.
   (unless (typep backend 'restart-checkpoint-backend)
     (generations--fail :backend "Expected a restart checkpoint backend."))
   (let* ((precheck (checkpoint-backend-precheck-function backend))
-         (value (and precheck (funcall precheck)))
+         (value    (and precheck (funcall precheck)))
          (metadata (checkpoint-backend-metadata-function backend)))
     (checkpoint-restart--call
      (checkpoint-backend-around-function backend)
@@ -84,11 +84,11 @@ artifact, attempts the resume hook when validation completed, and exits one."
   (unless (and (typep backend 'restart-checkpoint-backend)
                (eq generation (checkpoint-restart--pending-generation backend)))
     (generations--fail :backend "Generation was not reserved by this backend."))
-  (let ((state nil)
+  (let ((state       nil)
         (validated-p nil))
     (handler-case
         (let* ((precheck (checkpoint-backend-precheck-function backend))
-               (value (and precheck (funcall precheck))))
+               (value    (and precheck (funcall precheck))))
           (checkpoint-restart--call
            (checkpoint-backend-around-function backend)
            (lambda ()

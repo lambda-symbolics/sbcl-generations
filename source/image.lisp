@@ -36,7 +36,7 @@ check its record against the tree before answering.")
     (unless (and (consp pathnames)
                  (every (lambda (pathname) (and (stringp pathname) (plusp (length pathname))))
                         pathnames))
-      (generations--fail :source "The image inputs must be a non-empty list of strings."
+      (generations--fail :source   "The image inputs must be a non-empty list of strings."
                          :pathname source-root))
     (sort (remove-duplicates (copy-list pathnames) :test #'string=) #'string<)))
 
@@ -51,14 +51,14 @@ INPUTS is a function of the source root returning the relative pathnames the
 image is built from. Each is identified by its current byte content hash. Git
 and Jujutsu provenance is selected by MAKE-SOURCE-PROVENANCE."
   (let* ((source-root (uiop:ensure-directory-pathname source-root))
-         (source (make-source-provenance source-root))
-         (pathnames (image--inputs source-root inputs)))
+         (source      (make-source-provenance source-root))
+         (pathnames   (image--inputs source-root inputs)))
     (append
      (list :sbcl-generations-image
            :version *image-record-version*
-           :source-commit (source-revision source)
+           :source-commit  (source-revision source)
            :source-clean-p (source-clean-p source :paths pathnames)
-           :source-files (source-file-identities source pathnames))
+           :source-files   (source-file-identities source pathnames))
      (generation--runtime-properties))))
 
 (defun image--source-files-p (value)
@@ -92,8 +92,8 @@ and Jujutsu provenance is selected by MAKE-SOURCE-PROVENANCE."
   (not (null
         (handler-case
             (let ((source-root (uiop:ensure-directory-pathname source-root))
-                  (files (and (image-build-record-p record)
-                              (getf (rest record) :source-files))))
+                  (files       (and (image-build-record-p record)
+                                    (getf (rest record) :source-files))))
               (and files
                    (loop for (key value) on (generation--runtime-properties) by #'cddr
                          always (equal (getf (rest record) key) value))
@@ -107,7 +107,7 @@ and Jujutsu provenance is selected by MAKE-SOURCE-PROVENANCE."
   (list :sbcl-generations-image-probe
         :version *image-record-version*
         :source-commit (getf (rest record) :source-commit)
-        :source-files (getf (rest record) :source-files)))
+        :source-files  (getf (rest record) :source-files)))
 
 (defun image-manifest-pathname (core-pathname)
   "Return the manifest pathname beside an installed image CORE-PATHNAME."
@@ -164,9 +164,9 @@ returns; a failure exits with status 1."
           (funcall prepare))
         (sb-ext:gc :full t)
         (sb-ext:save-lisp-and-die (namestring pathname)
-                                  :toplevel #'image--toplevel
-                                  :executable nil
-                                  :purify nil
+                                  :toplevel    #'image--toplevel
+                                  :executable  nil
+                                  :purify      nil
                                   :compression nil))
     (error ()
       (sb-ext:exit :code 1 :abort t)))
@@ -209,14 +209,14 @@ afterwards, and only then does PUBLISH-FUNCTION move the core into place and
 WRITE-FUNCTION write its manifest. INPUTS, TOPLEVEL and PREPARE are as for
 IMAGE-SAVE. Failures signal CHECKPOINT-ERROR with stages :SOURCE, :FORK, :SAVE,
 :PROBE and :PUBLISH. Return CORE-PATHNAME."
-  (let* ((source-root (uiop:ensure-directory-pathname source-root))
+  (let* ((source-root   (uiop:ensure-directory-pathname source-root))
          (core-pathname (pathname core-pathname))
-         (temporary (make-pathname :name (format nil ".~A.~D" (pathname-name core-pathname)
-                                                 (sb-posix:getpid))
-                                   :type "core"
-                                   :defaults core-pathname))
-         (record (image-build-record source-root :inputs inputs))
-         (fork-p (and (eq saver :automatic) (image--fork-available-p))))
+         (temporary     (make-pathname :name     (format nil ".~A.~D" (pathname-name core-pathname)
+                                                         (sb-posix:getpid))
+                                       :type     "core"
+                                       :defaults core-pathname))
+         (record        (image-build-record source-root :inputs inputs))
+         (fork-p        (and (eq saver :automatic) (image--fork-available-p))))
     (unless (functionp toplevel)
       (generations--fail :validation "An image needs a TOPLEVEL function."))
     (unless (member saver '(:automatic :fresh-process))
@@ -224,7 +224,7 @@ IMAGE-SAVE. Failures signal CHECKPOINT-ERROR with stages :SOURCE, :FORK, :SAVE,
     (unless (or fork-p fresh-process-command)
       (generations--fail :validation "This host needs a fresh-process image saver command."))
     (when (and fork-p (not (checkpoint-single-threaded-p)))
-      (generations--fail :fork "Saving an image by fork requires one live Lisp thread."
+      (generations--fail :fork     "Saving an image by fork requires one live Lisp thread."
                          :pathname core-pathname))
     (ensure-directories-exist core-pathname)
     (when (probe-file temporary)
@@ -236,9 +236,9 @@ IMAGE-SAVE. Failures signal CHECKPOINT-ERROR with stages :SOURCE, :FORK, :SAVE,
            (unless (and (if fork-p
                             (image--fork-save (lambda ()
                                                 (image-save temporary record
-                                                            :inputs inputs
-                                                            :toplevel toplevel
-                                                            :prepare prepare
+                                                            :inputs         inputs
+                                                            :toplevel       toplevel
+                                                            :prepare        prepare
                                                             :probe-argument probe-argument))
                                               temporary)
                             (image--run-saver (funcall fresh-process-command temporary)
@@ -249,7 +249,7 @@ IMAGE-SAVE. Failures signal CHECKPOINT-ERROR with stages :SOURCE, :FORK, :SAVE,
                          (or probe-runner (make-sbcl-core-probe-runner))
                          probe-argument)
            (unless (equal record (image-build-record source-root :inputs inputs))
-             (generations--fail :source "The image inputs changed while it was built."
+             (generations--fail :source   "The image inputs changed while it was built."
                                 :pathname source-root))
            (handler-case
                (progn
@@ -258,14 +258,14 @@ IMAGE-SAVE. Failures signal CHECKPOINT-ERROR with stages :SOURCE, :FORK, :SAVE,
                           (image-manifest-pathname core-pathname)
                           (list :sbcl-generations-image-manifest
                                 :version *image-record-version*
-                                :core (namestring core-pathname)
+                                :core     (namestring core-pathname)
                                 :built-at (get-universal-time)
-                                :record record)))
+                                :record   record)))
              (error (condition)
                (generations--fail :publish
                                   (format nil "Could not install the image: ~A" condition)
                                   :pathname core-pathname
-                                  :cause condition))))
+                                  :cause    condition))))
       (when (probe-file temporary)
         (delete-file temporary)))
     core-pathname))
@@ -278,14 +278,14 @@ IMAGE-SAVE. Failures signal CHECKPOINT-ERROR with stages :SOURCE, :FORK, :SAVE,
   "Run the fresh-process saver COMMAND and return true when it exited successfully."
   (handler-case
       (zerop (nth-value 2 (uiop:run-program command
-                                            :input nil
-                                            :output *standard-output*
-                                            :error-output *error-output*
+                                            :input               nil
+                                            :output              *standard-output*
+                                            :error-output        *error-output*
                                             :ignore-error-status t)))
     (error (condition)
-      (generations--fail :save (format nil "Could not run the image saver: ~A" condition)
+      (generations--fail :save     (format nil "Could not run the image saver: ~A" condition)
                          :pathname temporary
-                         :cause condition))))
+                         :cause    condition))))
 
 (defun image--probe (temporary source-root record runner probe-argument)
   "Boot TEMPORARY through RUNNER with PROBE-ARGUMENT and require RECORD's exact answer."
@@ -299,7 +299,7 @@ IMAGE-SAVE. Failures signal CHECKPOINT-ERROR with stages :SOURCE, :FORK, :SAVE,
                                        :pathname temporary :cause condition)))))
     (unless (and (stringp actual)
                  (string= actual (generation-core-probe-output (image-probe-record record))))
-      (generations--fail :probe "The saved image reported the wrong identity."
+      (generations--fail :probe    "The saved image reported the wrong identity."
                          :pathname temporary)))
   nil)
 
@@ -320,7 +320,7 @@ IMAGE-SAVE. Failures signal CHECKPOINT-ERROR with stages :SOURCE, :FORK, :SAVE,
                  (generations--fail :fork
                                     (format nil "Could not fork the image saver: ~A" condition)
                                     :pathname temporary
-                                    :cause condition)))))
+                                    :cause    condition)))))
     (if (zerop pid)
         (progn
           (funcall child-function)
@@ -332,7 +332,7 @@ IMAGE-SAVE. Failures signal CHECKPOINT-ERROR with stages :SOURCE, :FORK, :SAVE,
                                    (format nil "Could not wait for the image saver: ~A"
                                            condition)
                                    :pathname temporary
-                                   :cause condition)))
+                                   :cause    condition)))
           (and (= waited pid)
                (sb-posix:wifexited status)
                (zerop (sb-posix:wexitstatus status))

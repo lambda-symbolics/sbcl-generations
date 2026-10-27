@@ -3,9 +3,9 @@
 (defun tests--store (root &rest arguments)
   "Return a generation store beneath ROOT."
   (apply #'make-generation-store
-         :root (merge-pathnames "generations/" root)
+         :root             (merge-pathnames "generations/" root)
          :current-pathname (merge-pathnames "current.sexp" root)
-         :core-name "image.core"
+         :core-name        "image.core"
          arguments))
 
 (defun tests--publish-fake (store identifier &key (created-at 100)
@@ -17,29 +17,29 @@ The core is a placeholder, so this exercises the manifest, listing, selection,
 and compatibility paths without spending a fork and a real image save."
   (let* ((directory (merge-pathnames (format nil "~A/" identifier)
                                      (sbcl-generations::generation-store-root store)))
-         (core (merge-pathnames "image.core" directory))
-         (manifest (merge-pathnames "manifest.sexp" directory)))
+         (core      (merge-pathnames "image.core" directory))
+         (manifest  (merge-pathnames "manifest.sexp" directory)))
     (tests--write-core core bytes)
     (sbcl-generations::store--write-form
      manifest
      (append (list :generation
                    :version (sbcl-generations::generation-store-manifest-version
                              store)
-                   :id identifier
+                   :id   identifier
                    :core (namestring core))
              metadata
-             (list :sbcl-version (lisp-implementation-version)
-                   :operating-system (software-type)
+             (list :sbcl-version             (lisp-implementation-version)
+                   :operating-system         (software-type)
                    :operating-system-version (software-version)
-                   :architecture (machine-type)
-                   :created-at created-at)))
+                   :architecture             (machine-type)
+                   :created-at               created-at)))
     manifest))
 
 (defun tests--manifests (root)
   "Exercise manifest loading, listing, and compatibility."
   (let ((store (tests--store root)))
     (tests--publish-fake store "alpha" :created-at 100
-                                       :metadata '(:source-commit "aaa"))
+                                       :metadata   '(:source-commit "aaa"))
     (tests--publish-fake store "beta" :created-at 200)
     (let ((generations (generation-list store)))
       (test-assert (= (length generations) 2)
@@ -63,11 +63,11 @@ and compatibility paths without spending a fork and a real image save."
        (merge-pathnames "gamma/manifest.sexp"
                         (sbcl-generations::generation-store-root store))
        (list :generation :version 1 :id "gamma"
-             :core (namestring
-                    (merge-pathnames "gamma/image.core"
-                                     (sbcl-generations::generation-store-root store)))
+             :core         (namestring
+                            (merge-pathnames "gamma/image.core"
+                                             (sbcl-generations::generation-store-root store)))
              :sbcl-version "0.0.0-not-this-runtime"
-             :created-at 300))
+             :created-at   300))
       (let ((gamma (generation-find store "gamma")))
         (test-assert (not (null gamma))
                      "a generation with a foreign runtime still loads")
@@ -169,7 +169,7 @@ and compatibility paths without spending a fork and a real image save."
                "the current thread alone is reported exactly true")
   (let ((started (sb-thread:make-semaphore :count 0))
         (release (sb-thread:make-semaphore :count 0))
-        (thread nil))
+        (thread  nil))
     (unwind-protect
          (progn
            (setf thread
@@ -192,13 +192,13 @@ and compatibility paths without spending a fork and a real image save."
                                 #'sbcl-generations:make-restart-checkpoint-backend)
         for index from 0
         do (dolist (fail-p '(nil t))
-             (let* ((precheck-count 0)
+             (let* ((precheck-count   0)
                     (around-entered-p nil)
                     (backend
                       (funcall constructor
-                               :store (tests--store
-                                       (merge-pathnames (format nil "~D-~A/" index fail-p) root)
-                                       :manifest-version 7)
+                               :store             (tests--store
+                                                   (merge-pathnames (format nil "~D-~A/" index fail-p) root)
+                                                   :manifest-version 7)
                                :toplevel-function (lambda (arguments)
                                                     (declare (ignore arguments)))
                                :precheck-function
@@ -206,14 +206,14 @@ and compatibility paths without spending a fork and a real image save."
                                  (incf precheck-count)
                                  (when fail-p
                                    (error 'checkpoint-error :message "Precheck failed."
-                                                            :stage :validation))
+                                                            :stage   :validation))
                                  :prechecked)
                                :around-function
                                (lambda (thunk)
                                  (declare (ignore thunk))
                                  (setf around-entered-p t)
                                  (error 'checkpoint-error :message "Stop before saving."
-                                                          :stage :validation)))))
+                                                          :stage   :validation)))))
                (handler-case (checkpoint-create backend)
                  (checkpoint-error () nil))
                (test-assert (= precheck-count 1) "each request runs its precheck once")
@@ -226,35 +226,35 @@ and compatibility paths without spending a fork and a real image save."
 
 This forks, saves a genuine image, boots it to confirm its identity, and
 publishes it independently of the supervised restart mechanism."
-  (let* ((store (tests--store root :manifest-version 7))
-         (prepared nil)
-         (resumed nil)
+  (let* ((store           (tests--store root :manifest-version 7))
+         (prepared        nil)
+         (resumed         nil)
          (around-active-p nil)
          (backend
            (make-checkpoint-backend
-            :store store
-            :toplevel-function (lambda (arguments)
-                                 (declare (ignore arguments))
-                                 nil)
+            :store               store
+            :toplevel-function   (lambda (arguments)
+                                   (declare (ignore arguments))
+                                   nil)
             :identifier-function (lambda () "checkpointed")
-            :precheck-function (lambda () :prechecked)
-           :around-function (lambda (thunk)
-                              (setf around-active-p t)
-                              (unwind-protect (funcall thunk)
-                                (setf around-active-p nil)))
-            :metadata-function (lambda (identifier precheck)
-                                 (list :requested-by identifier
-                                       :precheck precheck))
-            :validate-function (lambda (precheck)
-                                 (and (eq precheck :prechecked) :validated))
-            :prepare-function (lambda (generation)
-                                (declare (ignore generation))
-                                (unless around-active-p
-                                  (error 'checkpoint-error :message "Saver left the host context."
-                                                           :stage :save))
-                                (setf prepared t))
-            :resume-function (lambda (state)
-                               (setf resumed state))
+            :precheck-function   (lambda () :prechecked)
+            :around-function     (lambda (thunk)
+                                   (setf around-active-p t)
+                                   (unwind-protect (funcall thunk)
+                                     (setf around-active-p nil)))
+            :metadata-function   (lambda (identifier precheck)
+                                   (list :requested-by identifier
+                                         :precheck     precheck))
+            :validate-function   (lambda (precheck)
+                                   (and (eq precheck :prechecked) :validated))
+            :prepare-function    (lambda (generation)
+                                   (declare (ignore generation))
+                                   (unless around-active-p
+                                     (error 'checkpoint-error :message "Saver left the host context."
+                                                              :stage   :save))
+                                   (setf prepared t))
+            :resume-function     (lambda (state)
+                                   (setf resumed state))
             :probe-runner
             (sbcl-generations:make-sbcl-core-probe-runner
              :command (or (uiop:getenv "SBCL_GENERATIONS_SBCL")

@@ -8,13 +8,13 @@
 
 (defun tests--restart-child (root mode)
   "Save an exact heap, or exercise the requested failure MODE in a child."
-  (let* ((store (tests--store root))
-         (revision 1)
+  (let* ((store           (tests--store root))
+         (revision        1)
          (around-active-p nil)
-         (precheck-count 0)
+         (precheck-count  0)
          (backend
            (sbcl-generations:make-restart-checkpoint-backend
-            :store store
+            :store               store
             :identifier-function (lambda () "restart")
             :toplevel-function
             (lambda (arguments)
@@ -23,18 +23,18 @@
               (assert (= (first *restart-test-heap*) 42))
               (assert (null *restart-test-secret*))
               (format t "exact-heap-resumed~%"))
-           :precheck-function (lambda ()
-                                (assert (not around-active-p))
-                                (incf precheck-count)
-                                revision)
-           :around-function (lambda (thunk)
-                              (assert (= precheck-count revision))
-                              (setf around-active-p t)
-                              (unwind-protect (funcall thunk)
-                                (setf around-active-p nil)))
-            :metadata-function (lambda (identifier value)
-                                 (declare (ignore identifier))
-                                 (list :revision value :session "resumed-session"))
+            :precheck-function   (lambda ()
+                                   (assert (not around-active-p))
+                                   (incf precheck-count)
+                                   revision)
+            :around-function     (lambda (thunk)
+                                   (assert (= precheck-count revision))
+                                   (setf around-active-p t)
+                                   (unwind-protect (funcall thunk)
+                                     (setf around-active-p nil)))
+            :metadata-function   (lambda (identifier value)
+                                   (declare (ignore identifier))
+                                   (list :revision value :session "resumed-session"))
             :validate-function
             (lambda (value)
               (assert (= value 2))
@@ -45,9 +45,9 @@
             (lambda (generation)
               (declare (ignore generation))
              (assert around-active-p)
-              (setf *restart-test-secret* nil)
-              (when (eq mode :prepare-failure)
-                (error "prepare fixture")))
+             (setf *restart-test-secret* nil)
+             (when (eq mode :prepare-failure)
+               (error "prepare fixture")))
             :resume-function
             (lambda (state)
               (assert (eq state :quiesced))
@@ -101,7 +101,7 @@
   (let* ((validated nil)
          (backend
            (sbcl-generations:make-restart-checkpoint-backend
-            :store (tests--store root)
+            :store             (tests--store root)
             :toplevel-function (lambda (arguments) (declare (ignore arguments)))
             :validate-function (lambda (value)
                                  (declare (ignore value)) (setf validated t)))))
@@ -123,13 +123,14 @@
                store :identifier identifier :created-at 123 :metadata nil)))
            :manifest)
        "unsafe request identifiers are refused"))))
+
 (defun tests--restart-checkpoint (root)
   "Save, probe, publish and resume a real heap; then exercise failed saves."
   (tests--restart-reservation (merge-pathnames "reservation/" root))
   (tests--restart-request-validation (merge-pathnames "request-validation/" root))
   (dolist (mode '(:success :validate-failure :prepare-failure))
     (let* ((directory (merge-pathnames (format nil "~(~A~)/" mode) root))
-           (store (tests--store directory)))
+           (store     (tests--store directory)))
       (multiple-value-bind (output errors code)
           (tests--restart-run-child directory mode)
         (declare (ignore errors))

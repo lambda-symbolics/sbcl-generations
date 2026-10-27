@@ -4,13 +4,13 @@
 
 (defun store--print-form (form stream)
   "Write FORM to STREAM so that any reader reproduces it exactly."
-  (let ((*print-base* 10)
-        (*print-case* :upcase)
-        (*print-circle* nil)
-        (*print-length* nil)
-        (*print-level* nil)
-        (*print-pretty* nil)
-        (*print-radix* nil)
+  (let ((*print-base*     10)
+        (*print-case*     :upcase)
+        (*print-circle*   nil)
+        (*print-length*   nil)
+        (*print-level*    nil)
+        (*print-pretty*   nil)
+        (*print-radix*    nil)
         (*print-readably* t))
     (write form :stream stream)
     (terpri stream)))
@@ -24,17 +24,17 @@ It therefore cannot set a file mode; pass a host writer to the store when the
 permissions matter."
   (ensure-directories-exist pathname)
   (let ((temporary (make-pathname
-                    :name (concatenate 'string
-                                       "."
-                                       (or (pathname-name pathname) "record")
-                                       "-tmp")
-                    :type (pathname-type pathname)
+                    :name     (concatenate 'string
+                                           "."
+                                           (or (pathname-name pathname) "record")
+                                           "-tmp")
+                    :type     (pathname-type pathname)
                     :defaults pathname)))
     (with-open-file (stream temporary
-                            :direction :output
-                            :if-exists :supersede
+                            :direction         :output
+                            :if-exists         :supersede
                             :if-does-not-exist :create
-                            :external-format :utf-8)
+                            :external-format   :utf-8)
       (store--print-form form stream)
       (finish-output stream))
     (uiop:rename-file-overwriting-target temporary pathname)
@@ -47,8 +47,8 @@ Evaluation is disabled while reading, because a generation record is data
 written by another process and may have been tampered with."
   (with-open-file (stream pathname :direction :input :external-format :utf-8)
     (let* ((*read-eval* nil)
-           (end (list :end))
-           (form (read stream nil end)))
+           (end         (list :end))
+           (form        (read stream nil end)))
       (when (eq form end)
         (generations--fail :manifest
                            "A generation record holds no form."
@@ -64,54 +64,54 @@ written by another process and may have been tampered with."
 
 (defclass generation-store ()
   ((root
-    :initarg :root
-    :reader generation-store-root
-    :type pathname
+    :initarg       :root
+    :reader        generation-store-root
+    :type          pathname
     :documentation "The directory holding one subdirectory per generation.")
    (current-pathname
-    :initarg :current-pathname
-    :reader generation-store-current-pathname
-    :type pathname
+    :initarg       :current-pathname
+    :reader        generation-store-current-pathname
+    :type          pathname
     :documentation "The pointer file naming the generation selected for restart.")
    (core-name
-    :initarg :core-name
-    :reader generation-store-core-name
-    :type string
+    :initarg       :core-name
+    :reader        generation-store-core-name
+    :type          string
     :documentation "The published core file name inside a generation directory.")
    (temporary-core-name
-    :initarg :temporary-core-name
-    :reader generation-store-temporary-core-name
-    :type string
+    :initarg       :temporary-core-name
+    :reader        generation-store-temporary-core-name
+    :type          string
     :documentation "The unpublished core file name the saver child writes.")
    (manifest-version
-    :initarg :manifest-version
-    :reader generation-store-manifest-version
-    :type (integer 1)
+    :initarg       :manifest-version
+    :reader        generation-store-manifest-version
+    :type          (integer 1)
     :documentation "The manifest version this store writes, owned by the host.")
    (accepted-manifest-versions
-    :initarg :accepted-manifest-versions
-    :reader generation-store-accepted-manifest-versions
-    :type list
+    :initarg       :accepted-manifest-versions
+    :reader        generation-store-accepted-manifest-versions
+    :type          list
     :documentation "Every manifest version this store still loads.")
    (manifest-validator
-    :initarg :manifest-validator
-    :reader generation-store-manifest-validator
-    :type (or null function)
+    :initarg       :manifest-validator
+    :reader        generation-store-manifest-validator
+    :type          (or null function)
     :documentation "A host check of one loaded manifest plist, or NIL for none.")
    (publish-validator
-    :initarg :publish-validator
-    :reader generation-store-publish-validator
-    :type (or null function)
+    :initarg       :publish-validator
+    :reader        generation-store-publish-validator
+    :type          (or null function)
     :documentation "A host check of one generation's artifacts before publication.")
    (write-function
-    :initarg :write-function
-    :reader generation-store-write-function
-    :type function
+    :initarg       :write-function
+    :reader        generation-store-write-function
+    :type          function
     :documentation "Publishes one portable form atomically at a pathname.")
    (read-function
-    :initarg :read-function
-    :reader generation-store-read-function
-    :type function
+    :initarg       :read-function
+    :reader        generation-store-read-function
+    :type          function
     :documentation "Returns the single portable form stored at a pathname."))
   (:documentation "Where retained generations live and how their manifests read."))
 
@@ -154,68 +154,68 @@ processes agree on file modes and on how a truncated write is treated."
     (generations--fail :selection
                        "A generation manifest version must be a positive integer."))
   (make-instance 'generation-store
-                 :root (uiop:ensure-directory-pathname root)
-                 :current-pathname (pathname current-pathname)
-                 :core-name core-name
+                 :root                (uiop:ensure-directory-pathname root)
+                 :current-pathname    (pathname current-pathname)
+                 :core-name           core-name
                  :temporary-core-name temporary-core-name
-                 :manifest-version manifest-version
+                 :manifest-version    manifest-version
                  :accepted-manifest-versions
                  (or accepted-manifest-versions (list manifest-version))
-                 :manifest-validator manifest-validator
-                 :publish-validator publish-validator
-                 :write-function write-function
-                 :read-function read-function))
+                 :manifest-validator  manifest-validator
+                 :publish-validator   publish-validator
+                 :write-function      write-function
+                 :read-function       read-function))
 
 
 ;;;; -- Generations --
 
 (defclass generation ()
   ((identifier
-    :initarg :identifier
-    :reader generation-identifier
-    :type string
+    :initarg       :identifier
+    :reader        generation-identifier
+    :type          string
     :documentation "The stable generation identifier, also its directory name.")
    (directory
-    :initarg :directory
-    :reader generation-directory
-    :type pathname
+    :initarg       :directory
+    :reader        generation-directory
+    :type          pathname
     :documentation "The directory containing this generation's artifacts.")
    (core-pathname
-    :initarg :core-pathname
-    :reader generation-core-pathname
-    :type pathname
+    :initarg       :core-pathname
+    :reader        generation-core-pathname
+    :type          pathname
     :documentation "The atomically published core pathname.")
    (temporary-core-pathname
-    :initarg :temporary-core-pathname
-    :reader generation-temporary-core-pathname
-    :type pathname
+    :initarg       :temporary-core-pathname
+    :reader        generation-temporary-core-pathname
+    :type          pathname
     :documentation "The unpublished core pathname the saver child writes.")
    (manifest-pathname
-    :initarg :manifest-pathname
-    :reader generation-manifest-pathname
-    :type pathname
+    :initarg       :manifest-pathname
+    :reader        generation-manifest-pathname
+    :type          pathname
     :documentation "The portable manifest pathname.")
    (metadata
-    :initarg :metadata
-    :initform nil
-    :reader generation-metadata
-    :type list
+    :initarg       :metadata
+    :initform      nil
+    :reader        generation-metadata
+    :type          list
     :documentation "Host properties spliced into the manifest and probe record.")
    (created-at
-    :initarg :created-at
-    :reader generation-created-at
-    :type (integer 0)
+    :initarg       :created-at
+    :reader        generation-created-at
+    :type          (integer 0)
     :documentation "The creation time as a Common Lisp universal time.")
    (status
-    :initarg :status
-    :initform :pending
-    :accessor generation-status
-    :type (member :pending :ready :failed)
+    :initarg       :status
+    :initform      :pending
+    :accessor      generation-status
+    :type          (member :pending :ready :failed)
     :documentation "This process's view of the publication outcome.")
    (coordinator-pid
-    :initform nil
-    :accessor generation-coordinator-pid
-    :type (or null integer)
+    :initform      nil
+    :accessor      generation-coordinator-pid
+    :type          (or null integer)
     :documentation "The coordinator process identifier while publication runs."))
   (:documentation "One saved image paired with the identity it was saved at."))
 
@@ -224,17 +224,17 @@ processes agree on file modes and on how a truncated write is treated."
   (let ((directory (merge-pathnames (format nil "~A/" identifier)
                                     (generation-store-root store))))
     (make-instance 'generation
-                   :identifier identifier
-                   :directory directory
+                   :identifier        identifier
+                   :directory         directory
                    :core-pathname
                    (merge-pathnames (generation-store-core-name store) directory)
                    :temporary-core-pathname
                    (merge-pathnames (generation-store-temporary-core-name store)
                                     directory)
                    :manifest-pathname (merge-pathnames "manifest.sexp" directory)
-                   :metadata (copy-list metadata)
-                   :created-at (get-universal-time)
-                   :status :pending)))
+                   :metadata          (copy-list metadata)
+                   :created-at        (get-universal-time)
+                   :status            :pending)))
 
 (defun generation-recreate-pending (store &key identifier created-at metadata)
   "Recreate an unpublished generation from a supervisor's durable request.
@@ -258,10 +258,10 @@ publish anything; call GENERATION-PUBLISH to probe and publish the saved core."
 
 (defun generation--runtime-properties ()
   "Return the runtime identity a saved core must be booted by to be usable."
-  (list :sbcl-version (lisp-implementation-version)
-        :operating-system (software-type)
+  (list :sbcl-version             (lisp-implementation-version)
+        :operating-system         (software-type)
         :operating-system-version (software-version)
-        :architecture (machine-type)))
+        :architecture             (machine-type)))
 
 (defun generation-manifest-form (generation store)
   "Return the portable ready manifest for GENERATION within STORE.
@@ -270,7 +270,7 @@ Host metadata is spliced in flat rather than nested, so a host replacing its own
 reader with this library keeps reading the manifests it already wrote."
   (append (list :generation
                 :version (generation-store-manifest-version store)
-                :id (generation-identifier generation)
+                :id   (generation-identifier generation)
                 :core (namestring (generation-core-pathname generation)))
           (copy-list (generation-metadata generation))
           (generation--runtime-properties)
@@ -289,13 +289,13 @@ reader with this library keeps reading the manifests it already wrote."
 Every printer variable is bound, so two processes agree on the text regardless
 of the printer state either of them inherited."
   (with-output-to-string (stream)
-    (let ((*print-base* 10)
-          (*print-case* :upcase)
-          (*print-circle* nil)
-          (*print-length* nil)
-          (*print-level* nil)
-          (*print-pretty* nil)
-          (*print-radix* nil)
+    (let ((*print-base*     10)
+          (*print-case*     :upcase)
+          (*print-circle*   nil)
+          (*print-length*   nil)
+          (*print-level*    nil)
+          (*print-pretty*   nil)
+          (*print-radix*    nil)
           (*print-readably* t))
       (write record :stream stream)
       (terpri stream))))
@@ -316,16 +316,16 @@ The detail is truncated, because it may quote a condition report that a host
 would rather not grow without bound in its state directory."
   (let ((pathname (merge-pathnames "failure.sexp"
                                    (generation-directory generation)))
-        (text (let ((printed (princ-to-string detail)))
-                (if (> (length printed) 4000)
-                    (subseq printed 0 4000)
-                    printed))))
+        (text     (let ((printed (princ-to-string detail)))
+                    (if (> (length printed) 4000)
+                        (subseq printed 0 4000)
+                        printed))))
     (generation--write-form store pathname
                             (list :checkpoint-failure
                                   :version 1
-                                  :id (generation-identifier generation)
-                                  :time (get-universal-time)
-                                  :stage stage
+                                  :id     (generation-identifier generation)
+                                  :time   (get-universal-time)
+                                  :stage  stage
                                   :detail text))
     pathname))
 
@@ -347,7 +347,7 @@ containment is decided on resolved names wherever the filesystem can answer."
   "Return true when directory pathname BASE is DIRECTORY or one of its ancestors.
 
 Components compare case-insensitively, which is how Windows compares them."
-  (let ((base-components (pathname-directory base))
+  (let ((base-components      (pathname-directory base))
         (directory-components (pathname-directory directory)))
     (and (equalp (pathname-device base) (pathname-device directory))
          (<= (length base-components) (length directory-components))
@@ -373,7 +373,7 @@ Components compare case-insensitively, which is how Windows compares them."
 (defun generation-load-manifest (pathname store)
   "Load and validate one ready generation manifest from PATHNAME within STORE."
   (let* ((pathname (pathname pathname))
-         (form (generation--read-form store pathname)))
+         (form     (generation--read-form store pathname)))
     (unless (and (listp form)
                  (eq (first form) :generation)
                  (member (getf (rest form) :version)
@@ -384,8 +384,8 @@ Components compare case-insensitively, which is how Windows compares them."
       (generations--fail :manifest
                          (format nil "Invalid generation manifest at ~A." pathname)
                          :pathname pathname))
-    (let* ((properties (rest form))
-           (directory (uiop:pathname-directory-pathname pathname))
+    (let* ((properties    (rest form))
+           (directory     (uiop:pathname-directory-pathname pathname))
            (core-pathname (pathname (getf properties :core))))
       (unless (generation--core-within-directory-p core-pathname directory)
         (generations--fail :manifest
@@ -395,16 +395,16 @@ Components compare case-insensitively, which is how Windows compares them."
         (when validator
           (funcall validator properties pathname)))
       (make-instance 'generation
-                     :identifier (getf properties :id)
-                     :directory directory
-                     :core-pathname core-pathname
+                     :identifier        (getf properties :id)
+                     :directory         directory
+                     :core-pathname     core-pathname
                      :temporary-core-pathname
                      (merge-pathnames (generation-store-temporary-core-name store)
                                       directory)
                      :manifest-pathname pathname
-                     :metadata (copy-list properties)
-                     :created-at (or (getf properties :created-at) 0)
-                     :status :ready))))
+                     :metadata          (copy-list properties)
+                     :created-at        (or (getf properties :created-at) 0)
+                     :status            :ready))))
 
 (defun generation-compatible-p (generation &optional store)
   "Return true when GENERATION has a plausible core for this exact runtime.
@@ -415,14 +415,14 @@ than offered for selection. STORE supplies the reader; omit it only when the
 generation came from a store using the default one."
   (not (null
         (handler-case
-            (let* ((reader (if store
-                               (generation-store-read-function store)
-                               #'store--read-form))
+            (let* ((reader   (if store
+                                 (generation-store-read-function store)
+                                 #'store--read-form))
                    (manifest (funcall reader
                                       (generation-manifest-pathname generation))))
               (and (probe-file (generation-core-pathname generation))
                    (with-open-file (stream (generation-core-pathname generation)
-                                           :direction :input
+                                           :direction    :input
                                            :element-type '(unsigned-byte 8))
                      (> (file-length stream) 1048576))
                    (loop for (key value) on (generation--runtime-properties)

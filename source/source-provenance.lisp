@@ -40,7 +40,9 @@ object format; Jujutsu and unversioned directories use Git SHA1 blob identities.
 Missing inputs signal CHECKPOINT-ERROR at stage :SOURCE."))
 
 (defmethod source-kind ((source git-source-provenance)) :git)
+
 (defmethod source-kind ((source jj-source-provenance)) :jj)
+
 (defmethod source-kind ((source directory-source-provenance)) :directory)
 
 (defun make-source-provenance (root)
@@ -69,13 +71,13 @@ backend's metadata. Selection is repeated in fresh savers and saved-core probes.
       (handler-case
           (multiple-value-bind (output diagnostic status)
               (uiop:run-program (append command arguments)
-                                :directory (source-root source)
+                                :directory           (source-root source)
                                 :output :string :error-output :string
                                 :ignore-error-status t)
             (unless (zerop status)
               (generations--fail
-               :source (format nil "~A source query exited with status ~D: ~A"
-                               (first command) status diagnostic)
+               :source   (format nil "~A source query exited with status ~D: ~A"
+                                 (first command) status diagnostic)
                :pathname (source-root source)))
             (string-right-trim '(#\Newline #\Return) output))
         (checkpoint-error (condition)
@@ -163,6 +165,6 @@ backend's metadata. Selection is repeated in fresh savers and saved-core probes.
                   (source--git source (append '("hash-object" "--") paths))
                   :separator '(#\Newline #\Return))))
       (unless (= (length blobs) (length paths))
-        (generations--fail :source "Git returned the wrong number of source identities."
+        (generations--fail :source   "Git returned the wrong number of source identities."
                            :pathname (source-root source)))
       (mapcar #'list paths blobs))))

@@ -38,59 +38,59 @@ ordinary startup."
 
 (defclass checkpoint-backend ()
   ((store
-    :initarg :store
-    :reader checkpoint-backend-store
-    :type generation-store
+    :initarg       :store
+    :reader        checkpoint-backend-store
+    :type          generation-store
     :documentation "Where this backend publishes the images it saves.")
    (toplevel-function
-    :initarg :toplevel-function
-    :reader checkpoint-backend-toplevel-function
-    :type function
+    :initarg       :toplevel-function
+    :reader        checkpoint-backend-toplevel-function
+    :type          function
     :documentation "The host entry point a saved core runs, called with arguments.")
    (identifier-function
-    :initarg :identifier-function
-    :reader checkpoint-backend-identifier-function
-    :type function
+    :initarg       :identifier-function
+    :reader        checkpoint-backend-identifier-function
+    :type          function
     :documentation "Returns a fresh identifier naming the next generation.")
    (precheck-function
-    :initarg :precheck-function
-    :reader checkpoint-backend-precheck-function
-    :type (or null function)
+    :initarg       :precheck-function
+    :reader        checkpoint-backend-precheck-function
+    :type          (or null function)
     :documentation "Runs slow validation before anything is exclusive, or NIL.")
    (metadata-function
-    :initarg :metadata-function
-    :reader checkpoint-backend-metadata-function
-    :type (or null function)
+    :initarg       :metadata-function
+    :reader        checkpoint-backend-metadata-function
+    :type          (or null function)
     :documentation "Returns the manifest properties inside the exclusive region.")
    (validate-function
-    :initarg :validate-function
-    :reader checkpoint-backend-validate-function
-    :type (or null function)
+    :initarg       :validate-function
+    :reader        checkpoint-backend-validate-function
+    :type          (or null function)
     :documentation "Checks the process just before the fork and returns state.")
    (prepare-function
-    :initarg :prepare-function
-    :reader checkpoint-backend-prepare-function
-    :type (or null function)
+    :initarg       :prepare-function
+    :reader        checkpoint-backend-prepare-function
+    :type          (or null function)
     :documentation "Detaches host resources inside the saver child, or NIL.")
    (resume-function
-    :initarg :resume-function
-    :reader checkpoint-backend-resume-function
-    :type (or null function)
+    :initarg       :resume-function
+    :reader        checkpoint-backend-resume-function
+    :type          (or null function)
     :documentation "Restores whatever VALIDATE-FUNCTION suspended, or NIL.")
    (around-function
-    :initarg :around-function
-    :reader checkpoint-backend-around-function
-    :type (or null function)
+    :initarg       :around-function
+    :reader        checkpoint-backend-around-function
+    :type          (or null function)
     :documentation "Wraps checkpoint creation after the precheck in a host dynamic context, or NIL.")
    (fork-guard-function
-    :initarg :fork-guard-function
-    :reader checkpoint-backend-fork-guard-function
-    :type (or null function)
+    :initarg       :fork-guard-function
+    :reader        checkpoint-backend-fork-guard-function
+    :type          (or null function)
     :documentation "Wraps the pre-fork checks and the fork itself, or NIL.")
    (probe-runner
-    :initarg :probe-runner
-    :reader checkpoint-backend-probe-runner
-    :type (or null generation-core-probe-runner)
+    :initarg       :probe-runner
+    :reader        checkpoint-backend-probe-runner
+    :type          (or null generation-core-probe-runner)
     :documentation "Boots the unpublished core to confirm its identity."))
   (:documentation "The platform boundary for one non-stopping image checkpoint."))
 
@@ -155,17 +155,17 @@ than at the fork."
     (generations--fail :backend
                        "Non-stopping checkpoints require SBCL on Linux or macOS."))
   (make-instance 'fork-checkpoint-backend
-                 :store store
-                 :toplevel-function toplevel-function
+                 :store               store
+                 :toplevel-function   toplevel-function
                  :identifier-function identifier-function
-                 :precheck-function precheck-function
-                 :metadata-function metadata-function
-                 :validate-function validate-function
-                 :prepare-function prepare-function
-                 :resume-function resume-function
-                 :around-function around-function
+                 :precheck-function   precheck-function
+                 :metadata-function   metadata-function
+                 :validate-function   validate-function
+                 :prepare-function    prepare-function
+                 :resume-function     resume-function
+                 :around-function     around-function
                  :fork-guard-function fork-guard-function
-                 :probe-runner probe-runner))
+                 :probe-runner        probe-runner))
 
 (defgeneric checkpoint-create (backend)
   (:documentation "Begin a validated checkpoint and return its pending generation.
@@ -195,4 +195,3 @@ exists."
     (if (typep runner 'sbcl-core-probe-runner)
         (generation-core-probe-runner-argument runner)
         *default-probe-argument*)))
-

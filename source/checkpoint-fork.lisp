@@ -26,9 +26,9 @@ before that is recorded beside the generation so the parent can explain it."
         (sb-ext:gc :full t)
         (sb-ext:save-lisp-and-die
          (namestring (generation-temporary-core-pathname generation))
-         :toplevel #'checkpoint-resume-toplevel
-         :executable nil
-         :purify nil
+         :toplevel    #'checkpoint-resume-toplevel
+         :executable  nil
+         :purify      nil
          :compression nil))
     (error (condition)
       (ignore-errors (generation-record-failure
@@ -100,7 +100,7 @@ on the saver and then publishes, and it exits without returning to any host code
 
 Return two values: true in the coordinator child, and the coordinator identifier
 in the parent."
-  (let ((coordinator-p nil)
+  (let ((coordinator-p   nil)
         (coordinator-pid nil))
     (ensure-directories-exist (generation-directory generation))
     (setf *checkpoint-in-progress-p* t)
@@ -122,24 +122,24 @@ in the parent."
   "Fork a coordinator while briefly exclusive, then let the parent continue."
   ;; Run the potentially slow precheck before the host context, which may
   ;; quiesce terminal and application threads.
-  (let* ((precheck (checkpoint-backend-precheck-function backend))
+  (let* ((precheck       (checkpoint-backend-precheck-function backend))
          (precheck-value (and precheck (funcall precheck)))
-         (around (checkpoint-backend-around-function backend)))
+         (around         (checkpoint-backend-around-function backend)))
     (if around
         (funcall around (lambda () (checkpoint--create backend precheck-value)))
         (checkpoint--create backend precheck-value))))
 
 (defun checkpoint--create (backend precheck-value)
   "Create one checkpoint, assuming any host dynamic context is established."
-  (let* ((store (checkpoint-backend-store backend))
+  (let* ((store             (checkpoint-backend-store backend))
          (metadata-function (checkpoint-backend-metadata-function backend))
-         (validate (checkpoint-backend-validate-function backend))
-         (guard (checkpoint-backend-fork-guard-function backend))
-         (generation nil)
-         (validated-state nil)
-         (coordinator-p nil)
-         (coordinator-pid nil)
-         (failure nil))
+         (validate          (checkpoint-backend-validate-function backend))
+         (guard             (checkpoint-backend-fork-guard-function backend))
+         (generation        nil)
+         (validated-state   nil)
+         (coordinator-p     nil)
+         (coordinator-pid   nil)
+         (failure           nil))
     (flet ((region ()
              ;; Everything here runs while the host holds the process exclusive,
              ;; so it stays in the order a checkpoint actually depends on: refuse
@@ -177,8 +177,8 @@ in the parent."
                     condition
                     (make-condition 'checkpoint-error
                                     :message "Checkpoint preparation failed."
-                                    :stage :fork
-                                    :cause condition))))))
+                                    :stage   :fork
+                                    :cause   condition))))))
     ;; The saver and coordinator must not resume host resources: they are about
     ;; to write or publish an image and then exit.
     (let ((resume (checkpoint-backend-resume-function backend)))
@@ -190,8 +190,8 @@ in the parent."
               (setf failure
                     (make-condition 'checkpoint-error
                                     :message "Could not resume after checkpointing."
-                                    :stage :fork
-                                    :cause condition)))))))
+                                    :stage   :fork
+                                    :cause   condition)))))))
     (cond
       (coordinator-p
        (checkpoint--coordinate backend generation))
@@ -203,7 +203,7 @@ in the parent."
        (when failure
          (warn 'checkpoint-resume-warning
                :generation-identifier (generation-identifier generation)
-               :cause failure))
+               :cause                 failure))
        generation)
       (t
        (error (or failure

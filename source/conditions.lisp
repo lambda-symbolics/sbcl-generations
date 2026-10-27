@@ -4,26 +4,26 @@
 
 (define-condition checkpoint-error (error)
   ((message
-    :initarg :message
-    :reader checkpoint-error-message
-    :type string
+    :initarg       :message
+    :reader        checkpoint-error-message
+    :type          string
     :documentation "The human-readable description of the failure.")
    (stage
-    :initarg :stage
-    :reader checkpoint-error-stage
-    :type keyword
+    :initarg       :stage
+    :reader        checkpoint-error-stage
+    :type          keyword
     :documentation "The checkpoint stage that refused to continue.")
    (pathname
-    :initarg :pathname
-    :initform nil
-    :reader checkpoint-error-pathname
-    :type (or null pathname)
+    :initarg       :pathname
+    :initform      nil
+    :reader        checkpoint-error-pathname
+    :type          (or null pathname)
     :documentation "The artifact involved in the failure, when one is known.")
    (cause
-    :initarg :cause
-    :initform nil
-    :reader checkpoint-error-cause
-    :type t
+    :initarg       :cause
+    :initform      nil
+    :reader        checkpoint-error-cause
+    :type          t
     :documentation "The underlying condition, when the failure wrapped one."))
   (:report
    (lambda (condition stream)
@@ -38,14 +38,14 @@ STAGE is stable and suitable for a host to translate. The defined stages are
 
 (define-condition rollback-requested (error)
   ((message
-    :initarg :message
-    :reader rollback-requested-message
-    :type string
+    :initarg       :message
+    :reader        rollback-requested-message
+    :type          string
     :documentation "The human-readable description of the request.")
    (generation-identifier
-    :initarg :generation-identifier
-    :reader rollback-requested-generation-identifier
-    :type string
+    :initarg       :generation-identifier
+    :reader        rollback-requested-generation-identifier
+    :type          string
     :documentation "The generation the process should restart into."))
   (:report
    (lambda (condition stream)
@@ -58,14 +58,14 @@ is safe."))
 
 (define-condition checkpoint-resume-warning (warning)
   ((generation-identifier
-    :initarg :generation-identifier
-    :reader checkpoint-resume-warning-generation-identifier
-    :type string
+    :initarg       :generation-identifier
+    :reader        checkpoint-resume-warning-generation-identifier
+    :type          string
     :documentation "The generation whose checkpoint had already been forked.")
    (cause
-    :initarg :cause
-    :reader checkpoint-resume-warning-cause
-    :type t
+    :initarg       :cause
+    :reader        checkpoint-resume-warning-cause
+    :type          t
     :documentation "The condition that interrupted the host's resume hook."))
   (:report
    (lambda (condition stream)
@@ -81,7 +81,7 @@ happen."))
 (defun generations--fail (stage message &key pathname cause)
   "Signal a CHECKPOINT-ERROR for STAGE reporting MESSAGE."
   (error 'checkpoint-error
-         :message message
-         :stage stage
+         :message  message
+         :stage    stage
          :pathname pathname
-         :cause cause))
+         :cause    cause))

@@ -34,7 +34,7 @@
 
 (defun tests--image-records (root)
   "Exercise build records and their compatibility with a source tree."
-  (let* ((tree (tests--image-tree root))
+  (let* ((tree   (tests--image-tree root))
          (record (image-build-record tree :inputs #'tests--image-inputs)))
     (test-assert (image-build-record-p record)
                  "a build record is complete")
@@ -70,9 +70,9 @@
                      (tests--image-stage
                       (lambda ()
                         (image-install tree (merge-pathnames "image.core" root)
-                                       :inputs #'tests--image-inputs
+                                       :inputs   #'tests--image-inputs
                                        :toplevel (lambda (arguments) arguments)
-                                       :saver :fresh-process
+                                       :saver    :fresh-process
                                        :fresh-process-command
                                        (lambda (temporary)
                                          (declare (ignore temporary))
@@ -84,16 +84,16 @@
 
 (defun tests--image-install (root)
   "Exercise one real image save, probe, and install by fork."
-  (let* ((tree (tests--image-tree root))
-         (core (merge-pathnames "installed/image.core" root))
+  (let* ((tree     (tests--image-tree root))
+         (core     (merge-pathnames "installed/image.core" root))
          (prepared nil))
     (test-assert (checkpoint-single-threaded-p)
                  "the test image is single threaded before saving an image")
     (image-install tree core
-                   :inputs #'tests--image-inputs
-                   :toplevel (lambda (arguments) arguments)
-                   :prepare (lambda () (setf prepared t))
-                   :probe-runner (tests--image-runner)
+                   :inputs         #'tests--image-inputs
+                   :toplevel       (lambda (arguments) arguments)
+                   :prepare        (lambda () (setf prepared t))
+                   :probe-runner   (tests--image-runner)
                    :probe-argument "--test-image-probe")
     (test-assert (not prepared)
                  "the parent does not run the saver's prepare hook")

@@ -31,9 +31,12 @@
   "Create a Git, standalone jj, or colocated jj source fixture."
   (ensure-directories-exist root)
   (ecase kind
-    (:git (tests--source-command root "git" "init" "--quiet"))
-    (:jj (tests--source-command root "jj" "git" "init" "--no-colocate"))
-    (:colocated (tests--source-command root "jj" "git" "init" "--colocate")))
+    (:git
+     (tests--source-command root "git" "init" "--quiet"))
+    (:jj
+     (tests--source-command root "jj" "git" "init" "--no-colocate"))
+    (:colocated
+     (tests--source-command root "jj" "git" "init" "--colocate")))
   (tests--source-write root "a.lisp" "(a)")
   (tests--source-write root "nested/b.lisp" "(b)")
   (tests--source-write root "literal(1).lisp" "(literal)")
@@ -44,11 +47,11 @@
 
 (defun tests--source-records (root kind)
   "Exercise selected-path provenance against actual Git and jj repositories."
-  (let* ((tree (tests--source-fixture root kind))
-         (source (sbcl-generations:make-source-provenance tree))
-         (paths '("a.lisp" "nested/b.lisp" "literal(1).lisp"))
-         (inputs (lambda (root) (declare (ignore root)) paths))
-         (record (image-build-record tree :inputs inputs))
+  (let* ((tree     (tests--source-fixture root kind))
+         (source   (sbcl-generations:make-source-provenance tree))
+         (paths    '("a.lisp" "nested/b.lisp" "literal(1).lisp"))
+         (inputs   (lambda (root) (declare (ignore root)) paths))
+         (record   (image-build-record tree :inputs inputs))
          (revision (sbcl-generations:source-revision source)))
     (test-assert (eq (sbcl-generations:source-kind source)
                      (if (eq kind :git) :git :jj))
@@ -101,7 +104,7 @@
       (test-assert (string= revision (sbcl-generations:source-revision nested))
                    "nested source roots identify the same baseline"))
     (unless (eq kind :git)
-      (let* ((inner (tests--source-fixture (merge-pathnames "inner/" tree) :git))
+      (let* ((inner        (tests--source-fixture (merge-pathnames "inner/" tree) :git))
              (inner-source (sbcl-generations:make-source-provenance inner)))
         (test-assert (eq :git (sbcl-generations:source-kind inner-source))
                      "a nested Git tree does not use outer jj provenance")))
@@ -126,8 +129,8 @@
                        (tests--source-command root "git" "hash-object" "--" path))
               "streaming hashes are byte-exact Git blob identities"))
     (let ((record (image-build-record root :inputs (lambda (root)
-                                                   (declare (ignore root))
-                                                   '("bytes-0" "bytes-65537")))))
+                                                    (declare (ignore root))
+                                                    '("bytes-0" "bytes-65537")))))
       (test-assert (image-build-record-compatible-p
                     record root :inputs (lambda (root) (declare (ignore root))
                                           '("bytes-0" "bytes-65537")))
@@ -142,7 +145,7 @@
 
 (defun tests--source-linked-git (root)
   "Exercise linked worktrees, shared object stores and stat-less Nix indexes."
-  (let* ((tree (tests--source-fixture (merge-pathnames "origin/" root) :git))
+  (let* ((tree   (tests--source-fixture (merge-pathnames "origin/" root) :git))
          (linked (merge-pathnames "linked/" root))
          (shared (merge-pathnames "shared/" root)))
     (tests--source-command tree "git" "worktree" "add" "--detach" (namestring linked))
@@ -157,7 +160,7 @@
                      "linked and shared Git sources retain their committed identity")))
     (delete-file (merge-pathnames ".git/index" tree))
     (tests--source-command tree "git" "read-tree" "HEAD")
-    (let ((index (tests--source-bytes (merge-pathnames ".git/index" tree)))
+    (let ((index  (tests--source-bytes (merge-pathnames ".git/index" tree)))
           (source (sbcl-generations:make-source-provenance tree)))
       (test-assert (sbcl-generations:source-clean-p source :paths '("a.lisp"))
                    "a Nix-style stat-less index is clean")
@@ -187,17 +190,17 @@
             :test #'equal)))
     (with-open-file (output script :direction :output :if-exists :supersede)
       (dolist (form `((require :asdf)
-                     (asdf:initialize-source-registry
-                      '(:source-registry
-                        ,@(mapcar (lambda (directory) `(:directory ,directory)) directories)
-                        :ignore-inherited-configuration))
-                     (asdf:load-system "sbcl-generations/tests")
-                     (sbcl-generations:image-save
-                      ,temporary
-                      (sbcl-generations:image-build-record
-                       ,tree :inputs #'sbcl-generations/tests::tests--image-inputs)
-                      :inputs #'sbcl-generations/tests::tests--image-inputs
-                      :toplevel (lambda (arguments) (declare (ignore arguments))))))
+                      (asdf:initialize-source-registry
+                       '(:source-registry
+                         ,@(mapcar (lambda (directory) `(:directory ,directory)) directories)
+                         :ignore-inherited-configuration))
+                      (asdf:load-system "sbcl-generations/tests")
+                      (sbcl-generations:image-save
+                       ,temporary
+                       (sbcl-generations:image-build-record
+                        ,tree :inputs #'sbcl-generations/tests::tests--image-inputs)
+                       :inputs   #'sbcl-generations/tests::tests--image-inputs
+                       :toplevel (lambda (arguments) (declare (ignore arguments))))))
         (let ((*package* (find-package :cl-user)) (*print-readably* t))
           (write form :stream output)
           (terpri output))))
@@ -210,16 +213,16 @@
          (core (merge-pathnames "installed/image.core" root)))
     (tests--source-write tree "b.lisp" "(b)")
     (tests--source-commit tree kind)
-    (image-install tree core :inputs #'tests--image-inputs
-                   :toplevel (lambda (arguments) (declare (ignore arguments)))
-                   :saver :fresh-process
+    (image-install tree core :inputs      #'tests--image-inputs
+                   :toplevel              (lambda (arguments) (declare (ignore arguments)))
+                   :saver                 :fresh-process
                    :fresh-process-command (lambda (temporary)
                                             (tests--source-fresh-command tree temporary))
-                   :probe-runner (tests--image-runner))
+                   :probe-runner          (tests--image-runner))
     (test-assert (equal core (image-current-core core tree :inputs #'tests--image-inputs))
                  "a fresh saver embeds matching source provenance")
     (test-assert (search (generation-core-probe-output
-                         (image-probe-record (image-installed-record core)))
+                          (image-probe-record (image-installed-record core)))
                         (core-probe-run (tests--image-runner) core
                                         (list (namestring tree) *image-probe-argument*)))
                  "the saved core reselects its backend and answers its probe")
@@ -234,10 +237,10 @@
 
 (defun tests--source-jj-merge (root)
   "Identify all jj parents and compare against their automatic merge."
-  (let* ((tree (tests--source-fixture (merge-pathnames "tree/" root) :jj))
-         (base (tests--source-command tree "jj" "log" "--no-graph" "-r" "@-"
-                                      "-T" "commit_id"))
-         (source (sbcl-generations:make-source-provenance tree))
+  (let* ((tree    (tests--source-fixture (merge-pathnames "tree/" root) :jj))
+         (base    (tests--source-command tree "jj" "log" "--no-graph" "-r" "@-"
+                                         "-T" "commit_id"))
+         (source  (sbcl-generations:make-source-provenance tree))
          (parents nil))
     (dolist (side '("left" "right"))
       (tests--source-command tree "jj" "new" base)

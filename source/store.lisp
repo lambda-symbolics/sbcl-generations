@@ -30,14 +30,14 @@ working after that."
 (defun generation-find (store identifier)
   "Return STORE's retained generation IDENTIFIER, or NIL when it is unknown."
   (find identifier (generation-list store)
-        :key #'generation-identifier
+        :key  #'generation-identifier
         :test #'string=))
 
 (defun generation--select-form (generation)
   "Return the pointer form naming GENERATION as the next boot."
   (list :current-generation
         :version 1
-        :id (generation-identifier generation)
+        :id       (generation-identifier generation)
         :manifest (namestring (generation-manifest-pathname generation))))
 
 (defun generation-select (store generation)
@@ -64,9 +64,9 @@ process boot a core from anywhere else on the filesystem."
   (let ((pathname (generation-store-current-pathname store)))
     (when (probe-file pathname)
       (handler-case
-          (let* ((record (generation--read-form store pathname))
+          (let* ((record     (generation--read-form store pathname))
                  (identifier (and (listp record) (getf (rest record) :id)))
-                 (manifest (and (listp record) (getf (rest record) :manifest))))
+                 (manifest   (and (listp record) (getf (rest record) :manifest))))
             (when (and (listp record)
                        (eq (first record) :current-generation)
                        (stringp identifier)
@@ -94,6 +94,6 @@ the host's handler."
                          (format nil "Unknown retained generation ~A." identifier)))
     (generation-select store generation)
     (error 'rollback-requested
-           :message (format nil "Rollback requested for retained generation ~A."
-                            (generation-identifier generation))
+           :message               (format nil "Rollback requested for retained generation ~A."
+                                          (generation-identifier generation))
            :generation-identifier (generation-identifier generation))))

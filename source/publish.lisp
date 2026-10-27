@@ -16,14 +16,14 @@ exits instead of running.")
 
 (defclass sbcl-core-probe-runner (generation-core-probe-runner)
   ((command
-    :initarg :command
-    :reader generation-core-probe-runner-command
-    :type string
+    :initarg       :command
+    :reader        generation-core-probe-runner-command
+    :type          string
     :documentation "The SBCL executable used to boot an unpublished core.")
    (probe-argument
-    :initarg :probe-argument
-    :reader generation-core-probe-runner-argument
-    :type string
+    :initarg       :probe-argument
+    :reader        generation-core-probe-runner-argument
+    :type          string
     :documentation "The private argument passed to the booted core."))
   (:documentation "A probe runner that boots the core in a separate process."))
 
@@ -37,11 +37,11 @@ the runtime it will actually boot the core with, since a core is only usable by
 the build that saved it."
   (let ((configured (uiop:getenv "SBCL_GENERATIONS_SBCL")))
     (make-instance 'sbcl-core-probe-runner
-                   :command (or command
-                                (and configured
-                                     (plusp (length configured))
-                                     configured)
-                                "sbcl")
+                   :command        (or command
+                                       (and configured
+                                            (plusp (length configured))
+                                            configured)
+                                       "sbcl")
                    :probe-argument probe-argument)))
 
 (defgeneric core-probe-run (runner core-pathname arguments)
@@ -58,8 +58,8 @@ the build that saved it."
               (namestring core-pathname)
               "--end-runtime-options"
               arguments)
-       :input nil
-       :output :string
+       :input        nil
+       :output       :string
        :error-output :output)
     (error ()
       (generations--fail :probe
