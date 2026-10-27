@@ -340,8 +340,9 @@ directory listing reports the filesystem's own spelling. On Windows the two
 differ whenever a temporary root uses an 8.3 short name such as RUNNER~1, so
 containment is decided on resolved names wherever the filesystem can answer."
   (let ((directory (uiop:ensure-directory-pathname directory)))
-    (or (ignore-errors (uiop:ensure-directory-pathname (truename directory)))
-        directory)))
+    (handler-case (uiop:ensure-directory-pathname (truename directory))
+      (file-error ()
+        directory))))
 
 (defun generation--directory-prefix-p (base directory)
   "Return true when directory pathname BASE is DIRECTORY or one of its ancestors.
