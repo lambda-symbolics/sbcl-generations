@@ -247,9 +247,11 @@ IMAGE-SAVE. Failures signal CHECKPOINT-ERROR with stages :SOURCE, :FORK, :SAVE,
                                               temporary))
                         (probe-file temporary))
              (generations--fail :save "The image saver produced no core." :pathname temporary))
-           (image--probe temporary source-root record
-                         (or probe-runner (make-sbcl-core-probe-runner))
-                         probe-argument)
+           (image--probe temporary
+                         :source-root    source-root
+                         :record         record
+                         :runner         (or probe-runner (make-sbcl-core-probe-runner))
+                         :probe-argument probe-argument)
            (unless (equal record (image-build-record source-root :inputs inputs))
              (generations--fail :source   "The image inputs changed while it was built."
                                 :pathname source-root))
@@ -289,7 +291,7 @@ IMAGE-SAVE. Failures signal CHECKPOINT-ERROR with stages :SOURCE, :FORK, :SAVE,
                          :pathname temporary
                          :cause    condition))))
 
-(defun image--probe (temporary source-root record runner probe-argument)
+(defun image--probe (temporary &key source-root record runner probe-argument)
   "Boot TEMPORARY through RUNNER with PROBE-ARGUMENT and require RECORD's exact answer."
   (let ((actual (handler-case
                     (core-probe-run runner temporary
