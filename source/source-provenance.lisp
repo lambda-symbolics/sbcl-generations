@@ -39,11 +39,17 @@ PATHS are literal file names relative to SOURCE-ROOT. Git retains its repository
 object format; Jujutsu and unversioned directories use Git SHA1 blob identities.
 Missing inputs signal CHECKPOINT-ERROR at stage :SOURCE."))
 
-(defmethod source-kind ((source git-source-provenance)) :git)
+(defmethod source-kind ((source git-source-provenance))
+  "Return :GIT for a Git working tree."
+  :git)
 
-(defmethod source-kind ((source jj-source-provenance)) :jj)
+(defmethod source-kind ((source jj-source-provenance))
+  "Return :JJ for a Jujutsu workspace."
+  :jj)
 
-(defmethod source-kind ((source directory-source-provenance)) :directory)
+(defmethod source-kind ((source directory-source-provenance))
+  "Return :DIRECTORY for an unversioned directory."
+  :directory)
 
 (defun make-source-provenance (root)
   "Select provenance at the nearest managed ancestor of ROOT.
@@ -102,16 +108,20 @@ backend's metadata. Selection is repeated in fresh savers and saved-core probes.
   (source--command source '("jj" "--no-pager" "--color" "never") arguments))
 
 (defmethod source-revision ((source git-source-provenance))
+  "Return the commit ID of HEAD."
   (source--git source '("rev-parse" "HEAD")))
 
 (defmethod source-revision ((source jj-source-provenance))
+  "Return the parent commit IDs of @, joined with +."
   (source--jj source '("log" "--no-graph" "-r" "@" "-T"
                        "parents.map(|parent| parent.commit_id()).join(\"+\")")))
 
 (defmethod source-revision ((source directory-source-provenance))
+  "Return unversioned."
   "unversioned")
 
 (defmethod source-clean-p ((source git-source-provenance) &key paths)
+  "Return T when git status reports no changes or untracked files in PATHS."
   (zerop (length (source--git source
                              (append '("status" "--porcelain" "--untracked-files=all" "--")
                                      paths)))))
@@ -121,6 +131,7 @@ backend's metadata. Selection is repeated in fresh savers and saved-core probes.
   (concatenate 'string "file:" (write-to-string path :escape t)))
 
 (defmethod source-clean-p ((source jj-source-provenance) &key paths)
+  "Return T when @ changes none of PATHS, has no conflicts, and tracks all of them."
   (let ((filesets (mapcar #'source--jj-path (remove-duplicates paths :test #'string=))))
     (and (zerop (length (source--jj source
                                    (append '("diff" "-r" "@" "--name-only" "--")
@@ -134,6 +145,7 @@ backend's metadata. Selection is repeated in fresh savers and saved-core probes.
                 (or (null paths) (= (length entries) (length filesets))))))))
 
 (defmethod source-clean-p ((source directory-source-provenance) &key paths)
+  "Return NIL, since an unversioned directory has no clean state."
   (declare (ignore paths))
   nil)
 
@@ -151,6 +163,7 @@ backend's metadata. Selection is repeated in fresh savers and saved-core probes.
       (ironclad:byte-array-to-hex-string (ironclad:produce-digest digest)))))
 
 (defmethod source-file-identities ((source source-provenance) paths)
+  "Hash each of PATHS in Lisp as a Git SHA1 blob."
   (handler-case
       (mapcar (lambda (path)
                 (list path (source--blob (merge-pathnames path (source-root source)))))
@@ -160,6 +173,7 @@ backend's metadata. Selection is repeated in fresh savers and saved-core probes.
                          :pathname (source-root source) :cause condition))))
 
 (defmethod source-file-identities ((source git-source-provenance) paths)
+  "Hash PATHS with git hash-object in the repository's object format."
   (when paths
     (let ((blobs (uiop:split-string
                   (source--git source (append '("hash-object" "--") paths))
