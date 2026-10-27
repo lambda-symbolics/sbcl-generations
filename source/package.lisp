@@ -1,4 +1,5 @@
 (defpackage #:sbcl-generations
+  (:documentation "Saved SBCL images kept as numbered generations, with checkpoints that save the running heap.")
   (:use #:cl)
   (:import-from #:bordeaux-threads
                 #:make-thread)
@@ -82,6 +83,7 @@
            #:sbcl-core-probe-runner))
 
 (defpackage #:sbcl-generations/tests
+  (:documentation "Tests for sbcl-generations.")
   (:use #:cl)
   (:import-from #:sbcl-generations
                 #:*checkpoint-in-progress-p*
