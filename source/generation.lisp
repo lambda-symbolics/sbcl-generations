@@ -412,27 +412,48 @@ Components compare case-insensitively, which is how Windows compares them."
                      :status            :ready))))
 
 (defun generation-compatible-p (generation &optional store)
-  "Return true when GENERATION has a plausible core for this exact runtime.
+  "Return whether GENERATION has a plausible core for this exact runtime.
 
-A core saved by a different SBCL build, operating system release, or machine
-type cannot be booted here, so an incompatible generation is reported rather
-than offered for selection. STORE supplies the reader; omit it only when the
-generation came from a store using the default one."
-  (not (null
-        (handler-case
-            (let* ((reader   (if store
-                                 (generation-store-read-function store)
-                                 #'store--read-form))
-                   (manifest (funcall reader
-                                      (generation-manifest-pathname generation))))
-              (and (probe-file (generation-core-pathname generation))
-                   (with-open-file (stream (generation-core-pathname generation)
-                                           :direction    :input
-                                           :element-type '(unsigned-byte 8))
-                     (> (file-length stream) 1048576))
-                   (loop for (key value) on (generation--runtime-properties)
-                           by #'generations--plist-next
-                         always (equal (getf (rest manifest) key) value))
-                   t))
-          (error ()
-            nil)))))
+The second value explains an incompatibility and the third identifies its
+cause: a runtime-property keyword, :manifest-unreadable, :core-missing,
+:core-unreadable or :core-size. Both are NIL for a compatible generation.
+STORE supplies the reader; omit it only for the default store reader.
+This static check does not replace boot-probing a core before publication."
+  (block nil
+    (let ((stage :manifest-unreadable))
+      (handler-case
+          (let* ((reader   (if store
+                               (generation-store-read-function store)
+                               #'store--read-form))
+                 (manifest (funcall reader
+                                    (generation-manifest-pathname generation))))
+            (unless manifest
+              (return (values nil "Manifest is missing or empty."
+                              :manifest-unreadable)))
+            (setf stage :core-unreadable)
+            (unless (probe-file (generation-core-pathname generation))
+              (return (values nil "Core file is missing." :core-missing)))
+            (let ((size (with-open-file
+                            (stream (generation-core-pathname generation)
+                                    :direction    :input
+                                    :element-type '(unsigned-byte 8))
+                          (file-length stream))))
+              (unless (> size 1048576)
+                (return (values nil
+                                (format nil "Core file is too small (~D bytes)." size)
+                                :core-size))))
+            (setf stage :manifest-unreadable)
+            (loop for (key current) on (generation--runtime-properties)
+                    by #'generations--plist-next
+                  for saved = (getf (rest manifest) key)
+                  unless (equal saved current)
+                    do (return-from generation-compatible-p
+                         (values nil
+                                 (format nil "~A mismatch: saved ~S, current ~S."
+                                         key saved current)
+                                 key)))
+            (values t nil nil))
+        (error (condition)
+          (values nil
+                  (format nil "~A: ~A." stage condition)
+                  stage))))))

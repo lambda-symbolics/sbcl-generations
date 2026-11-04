@@ -94,6 +94,55 @@ and compatibility paths without spending a fork and a real image save."
                    "a core outside its artifact directory is refused")))
   nil)
 
+(defun tests--compatibility-reasons (root)
+  "Exercise structured compatibility diagnostics without a second policy check."
+  (let* ((store    (tests--store root))
+         (manifest (tests--publish-fake store "healthy"))
+         (healthy  (generation-load-manifest manifest store)))
+    (multiple-value-bind (compatible reason code)
+        (generation-compatible-p healthy store)
+      (test-assert (and (eq compatible t) (null reason) (null code))
+                   "compatible generations have no failure reason"))
+    (loop for (key current) on (sbcl-generations::generation--runtime-properties)
+            by #'sbcl-generations::generations--plist-next
+          for index from 0
+          do (let* ((identifier (format nil "foreign-~D" index))
+                    (pathname   (tests--publish-fake
+                                 store identifier
+                                 :metadata (list key "foreign-runtime")))
+                    (generation (generation-load-manifest pathname store)))
+               (multiple-value-bind (compatible reason code)
+                   (generation-compatible-p generation store)
+                 (test-assert (and (null compatible) (eq code key)
+                                   (search "foreign-runtime" reason)
+                                   (search current reason))
+                              "runtime failures identify saved and current properties"))))
+    (delete-file (generation-core-pathname healthy))
+    (multiple-value-bind (compatible reason code)
+        (generation-compatible-p healthy store)
+      (test-assert (and (null compatible) (eq code :core-missing) (stringp reason))
+                   "a missing core has a structured diagnostic"))
+    (tests--write-core (generation-core-pathname healthy) 16)
+    (multiple-value-bind (compatible reason code)
+        (generation-compatible-p healthy store)
+      (test-assert (and (null compatible) (eq code :core-size) (stringp reason))
+                   "a truncated core has a structured diagnostic"))
+    (tests--write-core (generation-core-pathname healthy) (* 2 1024 1024))
+    (with-open-file (stream manifest :direction :output :if-exists :supersede)
+      (write-string "(" stream))
+    (multiple-value-bind (compatible reason code)
+        (generation-compatible-p healthy store)
+      (test-assert (and (null compatible) (eq code :manifest-unreadable)
+                        (stringp reason))
+                   "a malformed manifest is reported without signaling"))
+    (delete-file manifest)
+    (multiple-value-bind (compatible reason code)
+        (generation-compatible-p healthy store)
+      (test-assert (and (null compatible) (eq code :manifest-unreadable)
+                        (stringp reason))
+                   "a missing manifest is reported without signaling")))
+  nil)
+
 (defun tests--selection (root)
   "Exercise the selection pointer and the rollback request."
   (let ((store (tests--store root)))
@@ -307,6 +356,7 @@ publishes it independently of the supervised restart mechanism."
     (unwind-protect
          (progn
            (tests--manifests (merge-pathnames "manifests/" root))
+           (tests--compatibility-reasons (merge-pathnames "compatibility/" root))
            (tests--selection (merge-pathnames "selection/" root))
            (tests--backend-validation (merge-pathnames "validation/" root))
            (tests--single-thread-preflight)

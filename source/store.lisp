@@ -46,11 +46,12 @@ working after that."
     (generations--fail :selection
                        "A generation cannot be selected while a checkpoint publishes."
                        :pathname (generation-store-current-pathname store)))
-  (unless (generation-compatible-p generation store)
-    (generations--fail :selection
-                       (format nil "Generation ~A is not compatible with this runtime."
-                               (generation-identifier generation))
-                       :pathname (generation-manifest-pathname generation)))
+  (multiple-value-bind (compatible reason) (generation-compatible-p generation store)
+    (unless compatible
+      (generations--fail :selection
+                         (format nil "Generation ~A is incompatible: ~A"
+                                 (generation-identifier generation) reason)
+                         :pathname (generation-manifest-pathname generation))))
   (generation--write-form store
                           (generation-store-current-pathname store)
                           (generation--select-form generation))
