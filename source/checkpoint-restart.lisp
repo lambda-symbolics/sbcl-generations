@@ -73,6 +73,18 @@ identity to its user before saving. A second request on this backend is refused.
   "Reserve a restart checkpoint; the host schedules the actual safe boundary."
   (checkpoint-restart-create backend))
 
+(defun checkpoint-restart--single-user-thread-p ()
+  "Return true when no other live user thread survives preparation.
+
+SBCL excludes ephemeral system threads from its save-time user-thread check and
+stops Windows' timer watchdog during deinitialization. Forks require a stricter
+preflight because the other threads cannot dispose their resources after fork."
+  (notany (lambda (thread)
+            (and (not (eq thread sb-thread:*current-thread*))
+                 (sb-thread:thread-alive-p thread)
+                 (not (sb-thread::thread-ephemeral-p thread))))
+          (sb-thread:list-all-threads)))
+
 (defun checkpoint-restart-save-and-exit (backend generation &key ready-function)
   "Save the exact heap as GENERATION and terminate this process.
 
@@ -119,8 +131,8 @@ artifact, attempts the resume hook when validation completed, and exits one."
                       (checkpoint-backend-toplevel-function backend))
                 (let ((prepare (checkpoint-backend-prepare-function backend)))
                   (when prepare (funcall prepare generation)))
-                (unless (checkpoint-single-threaded-p)
-                  (generations--fail :save "Other Lisp threads survived checkpoint preparation."))
+                (unless (checkpoint-restart--single-user-thread-p)
+                  (generations--fail :save "Other user threads survived checkpoint preparation."))
                 (finish-output *standard-output*)
                 (finish-output *error-output*)
                 (sb-ext:gc :full t)

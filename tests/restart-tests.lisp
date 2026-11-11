@@ -6,6 +6,30 @@
 (defvar *restart-test-secret* nil
   "Fixture resource that must be cleared before saving.")
 
+(defun tests--restart-start-thread (mode)
+  "Start a blocked thread, disposing an ephemeral fixture only during saving."
+  (let ((started (sb-thread:make-semaphore :count 0))
+        (release (sb-thread:make-semaphore :count 0))
+        (thread  nil))
+    (flet ((wait-for-release ()
+             (sb-thread:signal-semaphore started)
+             (sb-thread:wait-on-semaphore release)))
+      (setf thread
+            (if (eq mode :ephemeral-success)
+                (sb-thread::make-system-thread "restart ephemeral fixture"
+                                              #'wait-for-release nil nil)
+                (sb-thread:make-thread #'wait-for-release :name "restart user fixture")))
+      (sb-thread:wait-on-semaphore started)
+      (assert (not (checkpoint-single-threaded-p)))
+      (when (eq mode :ephemeral-success)
+        ;; Dispose the fixture during SBCL deinitialization, like its timer watchdog.
+        (push (lambda ()
+                (when thread
+                  (sb-thread:signal-semaphore release)
+                  (sb-thread:join-thread thread)
+                  (setf thread nil)))
+              sb-ext:*save-hooks*)))))
+
 (defun tests--restart-child (root mode)
   "Save an exact heap, or exercise the requested failure MODE in a child."
   (let* ((store           (tests--store root))
@@ -47,7 +71,9 @@
              (assert around-active-p)
              (setf *restart-test-secret* nil)
              (when (eq mode :prepare-failure)
-               (error "prepare fixture")))
+               (error "prepare fixture"))
+             (when (member mode '(:ephemeral-success :thread-failure))
+               (tests--restart-start-thread mode)))
             :resume-function
             (lambda (state)
               (assert (eq state :quiesced))
@@ -128,19 +154,20 @@
   "Save, probe, publish and resume a real heap; then exercise failed saves."
   (tests--restart-reservation (merge-pathnames "reservation/" root))
   (tests--restart-request-validation (merge-pathnames "request-validation/" root))
-  (dolist (mode '(:success :validate-failure :prepare-failure))
-    (let* ((directory (merge-pathnames (format nil "~(~A~)/" mode) root))
-           (store     (tests--store directory)))
+  (dolist (mode '(:success :ephemeral-success :validate-failure :prepare-failure :thread-failure))
+    (let* ((directory    (merge-pathnames (format nil "~(~A~)/" mode) root))
+           (store        (tests--store directory))
+           (successful-p (member mode '(:success :ephemeral-success))))
       (multiple-value-bind (output errors code)
           (tests--restart-run-child directory mode)
         (declare (ignore errors))
-        (test-assert (= code (if (eq mode :success) 0 1))
+        (test-assert (= code (if successful-p 0 1))
                      (format nil "restart child ~A exit ~D: ~A" mode code output)))
       (let ((generation
               (sbcl-generations:generation-recreate-pending
                store :identifier "restart" :created-at 123
                :metadata '(:revision 2 :session "resumed-session"))))
-        (if (eq mode :success)
+        (if successful-p
             (progn
               (test-assert
                (equal (sbcl-generations::store--read-form
@@ -173,5 +200,5 @@
                            "failed checkpoint is never selected")
               (test-assert
                (eq (not (null (probe-file (merge-pathnames "resumed.sexp" directory))))
-                   (eq mode :prepare-failure))
+                   (not (null (member mode '(:prepare-failure :thread-failure)))))
                "only completed validation is resumed after failure")))))))
