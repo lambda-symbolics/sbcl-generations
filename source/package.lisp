@@ -1,5 +1,5 @@
 (defpackage #:sbcl-generations
-  (:documentation "Saved SBCL images kept as numbered generations, with checkpoints that save the running heap.")
+  (:documentation "Save SBCL images as numbered generations using checkpoints that save the running heap.")
   (:use #:cl)
   (:import-from #:bordeaux-threads
                 #:make-thread)
